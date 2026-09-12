@@ -1,2 +1,4 @@
 /oldversions
 oldbuttoncode
+node_modules/
+dist/

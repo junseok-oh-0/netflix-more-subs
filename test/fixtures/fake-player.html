@@ -1,0 +1,247 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Fake Netflix Player (fixture)</title>
+    <style>
+      body { margin: 0; background: #111; color: #ddd; font-family: Helvetica, Arial, sans-serif; }
+      #panel { padding: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #333; }
+      #panel button, #panel select { font: inherit; padding: 4px 8px; }
+      #log { font: 12px/1.4 monospace; padding: 8px 12px; max-height: 160px; overflow: auto; color: #9c9; white-space: pre; }
+      .watch-video { position: relative; width: 960px; height: 540px; background: #000; margin: 12px; overflow: hidden; }
+      .watch-video--player-view { position: absolute; inset: 0; }
+      #video-canvas video { width: 100%; height: 100%; background: #223; }
+      .player-timedtext { position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; }
+      .player-timedtext-text-container { position: absolute; left: 5%; text-align: center; width: 90%; }
+      .player-timedtext-text-container span { color: #fff; text-shadow: #000 0 0 7px; font-weight: bold; }
+      .bottom-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: linear-gradient(transparent, rgba(0,0,0,.8)); display: none; }
+      .bottom-bar.active { display: block; }
+      .button-row { display: flex; gap: 8px; align-items: center; padding: 16px; }
+      .button-row button { background: none; border: 0; color: #fff; font-size: 20px; cursor: pointer; }
+      .ltr-1dcjcj4 button { background: none; border: 0; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <div id="panel">
+      <label>classname mode
+        <select id="mode"><option value="normal">normal</option><option value="css">Css</option></select>
+      </label>
+      <button data-act="loadVideo">Load video</button>
+      <button data-act="nextVideo">Next episode (autoplay)</button>
+      <span>|</span>
+      <button data-act="sub1">Subtitle (1 line)</button>
+      <button data-act="sub2">Subtitle (2 lines, 1 container)</button>
+      <button data-act="sub2c">Subtitle (2 containers)</button>
+      <button data-act="clear">Clear subtitle</button>
+      <button data-act="autoplay">Auto cycle</button>
+      <span>|</span>
+      <button data-act="resize">Change inset (resize)</button>
+      <button data-act="hideControls">Hide controls</button>
+      <button data-act="showControls">Show controls</button>
+      <span>|</span>
+      <label>translator
+        <select id="translator"><option value="off">off</option><option value="chrome">chrome</option><option value="edge">edge</option></select>
+      </label>
+    </div>
+
+    <!-- Depth mirrors content.js waitForElement selector:
+         #appMountPoint > div > div > div > div > div > div:nth-child(1) > div > div > div > div -->
+    <div id="appMountPoint">
+      <div><div><div><div><div>
+        <div>
+          <div><div><div>
+            <div class="watch-video">
+              <div class="watch-video--player-view">
+                <div class=" ltr-18tyyic" id="video-canvas"></div>
+                <div class="player-timedtext" style="inset: 0px 0px 0px 0px;"></div>
+                <div id="controls-root"></div>
+              </div>
+            </div>
+          </div></div></div>
+        </div>
+      </div></div></div></div></div>
+    </div>
+
+    <pre id="log"></pre>
+
+    <script>
+      (function () {
+        const CANVAS_CLASS = { normal: ' ltr-18tyyic', css: ' ltr-1b8gkd7-videoCanvasCss' };
+        const BAR_CLASS = { normal: 'active ltr-fntwn3', css: 'active ltr-gwjau2-playerCss' };
+        const SAMPLE = ['Hei, verden.', 'Hvordan har du det?', 'Jeg lærer norsk.', 'Vi ses i morgen!'];
+
+        const $ = (s) => document.querySelector(s);
+        const log = (m) => {
+          const el = $('#log');
+          if (!el) return;
+          el.textContent += `[${new Date().toLocaleTimeString()}] ${m}\n`;
+          el.scrollTop = el.scrollHeight;
+        };
+
+        let mode = 'normal';
+        let videoCounter = 81000000;
+        let cycleTimer = null;
+        let translator = 'off';
+
+        function setClassnameMode(m) {
+          mode = m;
+          $('#video-canvas').className = CANVAS_CLASS[m];
+          log(`classname mode: ${m}`);
+        }
+
+        function loadVideo(id = ++videoCounter) {
+          const canvas = $('#video-canvas');
+          canvas.replaceChildren();
+          history.replaceState(null, '', `/watch/${id}?trackId=1`);
+          const v = document.createElement('video');
+          v.id = String(id);
+          canvas.appendChild(v);
+          log(`video loaded: ${id}`);
+          return id;
+        }
+
+        function buildContainer(lines) {
+          const c = document.createElement('div');
+          c.className = 'player-timedtext-text-container';
+          c.style.bottom = '10%';
+          c.style.left = '5%';
+          const row = document.createElement('div');
+          row.style.textAlign = 'center';
+          lines.forEach((t, i) => {
+            if (i) row.appendChild(document.createElement('br'));
+            const s = document.createElement('span');
+            s.style.fontSize = '32px';
+            s.style.color = '#ffffff';
+            s.textContent = t;
+            row.appendChild(s);
+          });
+          c.appendChild(row);
+          return c;
+        }
+
+        // Netflix clears then re-adds; multiple containers arrive one node at a time.
+        function showSubtitle(lines, { containers = 1 } = {}) {
+          const tt = $('.player-timedtext');
+          tt.replaceChildren();
+          if (containers === 1) {
+            tt.appendChild(buildContainer(lines));
+          } else {
+            lines.forEach((l) => tt.appendChild(buildContainer([l])));
+          }
+          log(`subtitle: ${JSON.stringify(lines)} (${containers} container${containers > 1 ? 's' : ''})`);
+        }
+
+        function clearSubtitle() {
+          $('.player-timedtext').replaceChildren();
+          log('subtitle cleared');
+        }
+
+        function setInset(px) {
+          $('.player-timedtext').style.inset = `${px}px 0px 0px 0px`;
+          log(`inset -> ${px}px`);
+        }
+
+        function hideControls() {
+          $('#controls-root').replaceChildren();
+          log('controls destroyed');
+        }
+
+        function showControls() {
+          hideControls();
+          const bar = document.createElement('div');
+          bar.className = 'bottom-bar';
+          bar.innerHTML =
+            '<div class="button-row">' +
+            '<div><button aria-label="Play">▶</button></div>' +
+            '<div><button aria-label="Seek Back">⏪</button></div>' +
+            '<div><button aria-label="Seek Forward">⏩</button></div>' +
+            '</div>';
+          $('#controls-root').appendChild(bar);
+          // Netflix flips the class after insertion; content.js watches this attribute change.
+          bar.className = 'bottom-bar ' + BAR_CLASS[mode];
+          log('controls created');
+          return bar;
+        }
+
+        function stopAutoplay() {
+          clearInterval(cycleTimer);
+          cycleTimer = null;
+        }
+
+        function autoplay(intervalMs = 2000) {
+          stopAutoplay();
+          let i = 0;
+          cycleTimer = setInterval(() => {
+            if (i % 2) clearSubtitle();
+            else showSubtitle([SAMPLE[(i / 2) % SAMPLE.length]]);
+            i++;
+          }, intervalMs);
+          log(`autoplay every ${intervalMs}ms`);
+        }
+
+        // --- Browser translator simulation -------------------------------
+        // Chrome: replaces text with nested <font> elements.
+        // Edge:   rewrites text and stamps _msttexthash on the container.
+        function fakeTranslate(text) {
+          return '[translated] ' + text;
+        }
+
+        function translateContainer(container) {
+          if (translator === 'off') return;
+          const text = container.textContent.trim();
+          if (!text || text.startsWith('[translated]') || container.querySelector('font')) return;
+          if (translator === 'chrome') {
+            container.innerHTML =
+              '<font style="vertical-align: inherit"><font style="vertical-align: inherit">' +
+              fakeTranslate(text) +
+              '</font></font>';
+          } else {
+            container.textContent = fakeTranslate(text);
+            container.setAttribute('_msttexthash', String(text.length * 7919));
+          }
+          log(`translator(${translator}): ${text}`);
+        }
+
+        const translatorObserver = new MutationObserver((records) => {
+          for (const r of records) {
+            const c = r.target.closest && r.target.closest('.my-timedtext-container');
+            if (c) setTimeout(() => translateContainer(c), 200);
+          }
+        });
+        translatorObserver.observe($('.watch-video'), { childList: true, subtree: true, characterData: true });
+
+        function setTranslator(t) {
+          translator = t;
+          log(`translator: ${t}`);
+        }
+
+        // --- Panel wiring ---------------------------------------------------
+        const actions = {
+          loadVideo: () => loadVideo(),
+          nextVideo: () => loadVideo(),
+          sub1: () => showSubtitle([SAMPLE[0]]),
+          sub2: () => showSubtitle([SAMPLE[1], SAMPLE[2]]),
+          sub2c: () => showSubtitle([SAMPLE[1], SAMPLE[2]], { containers: 2 }),
+          clear: clearSubtitle,
+          autoplay: () => (cycleTimer ? stopAutoplay() : autoplay()),
+          resize: () => setInset(Math.round(Math.random() * 80)),
+          hideControls,
+          showControls,
+        };
+        $('#panel').addEventListener('click', (e) => {
+          const act = e.target.dataset && e.target.dataset.act;
+          if (act && actions[act]) actions[act]();
+        });
+        $('#mode').addEventListener('change', (e) => setClassnameMode(e.target.value));
+        $('#translator').addEventListener('change', (e) => setTranslator(e.target.value));
+
+        showControls();
+
+        window.fakePlayer = {
+          setClassnameMode, loadVideo, showSubtitle, clearSubtitle, setInset,
+          showControls, hideControls, autoplay, stopAutoplay, setTranslator, SAMPLE,
+        };
+      })();
+    </script>
+  </body>
+</html>
