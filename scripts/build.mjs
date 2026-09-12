@@ -19,7 +19,7 @@ await build({
   logLevel: 'info',
 });
 
-for (const f of ['popup.html', 'settings_box.html', 'tutorial.html', 'update.html', 'jquery-3.5.1.min.js']) {
+for (const f of ['popup.html', 'settings_box.html', 'tutorial.html', 'update.html']) {
   cpSync(resolve(root, f), resolve(dist, f));
 }
 cpSync(resolve(root, 'icons'), resolve(dist, 'icons'), { recursive: true });

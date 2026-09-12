@@ -1,7 +1,4 @@
 dist/
 node_modules/
-jquery-3.5.1.min.js
-content.js
-background.js
-popup.js
 *.html
+*.md
