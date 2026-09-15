@@ -1,6 +1,6 @@
 # Phase 2 — 설정 파이프라인 단일화 + 설정 UI 일원화
 
-상태: **완료 (스모크 대기)** · 2026-09-15
+상태: **완료** · 2026-09-15 · 스모크 통과 2026-09-15
 원칙: 설정의 진실 원천은 `chrome.storage.sync` 하나. 자막 렌더링·레이아웃·옵저버 로직은 건드리지 않음.
 
 ## 커밋
@@ -60,11 +60,12 @@ npm run build  → content 22.9kb, popup 3.7kb; dist/에 settings_box.html 없�
 ```
 테스트 구성: 특성화 11 · 픽스처 계약 4 · preferences 12 · popup 3
 
-## 수동 스모크 (필요)
-`docs/SMOKE_CHECKLIST.md` 갱신본으로 A, B(1~2), E, H 확인. 특히:
-- 팝업에서 값 변경 → Netflix 탭에 즉시 반영 (Netflix 탭이 활성 탭이 아닐 때도)
-- Stacked OFF 후 **브라우저 완전 재시작** → OFF 유지 (SW 리셋 버그 해소)
-- 플레이바에 버튼이 없고, 콘솔에 에러가 없음
+## 후속 수정
+- `cc225d7` — 리사이즈 분기·폰트 축소 루프가 `container > div > span` 깊이를 가정해 `reading 'fontSize'` TypeError를 던지던 문제. `[style*="font-size"]`로 찾도록 변경 + 재현 테스트
+- 스모크 중 보고된 "설정 버튼 Failed to fetch", "팝업 설정 미반영"은 코드 문제가 아니라 확장 갱신 후 **Netflix 탭을 새로고침하지 않아** 옛 content script가 남아 있던 것 (에러 줄 번호가 `d5a7d2d` 번들과 일치). 체크리스트 준비 절에 탭 새로고침 단계 추가
+
+## 수동 스모크 결과 (2026-09-15, `cc225d7`)
+A·E·F·H 전부 `y`. B-3(SM-2)·C-1(SM-1)은 예상대로 `n`. `?` 2건: B-4 긴 자막 미검증(SM-3), E-12 "탭 2개"는 Netflix가 동시 재생 탭을 허용하지 않아 시험 불가(조치 없음). Phase 3 진행.
 
 ## 다음 단계
 Phase 3 — content.js 모듈 분리 + SM-1(자동재생) 해결. `docs/REFACTORING_PLAN.md` 참고.
