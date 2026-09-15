@@ -20,7 +20,7 @@ await build({
   logLevel: 'info',
 });
 
-for (const f of ['popup.html', 'settings_box.html', 'tutorial.html', 'update.html']) {
+for (const f of ['popup.html', 'tutorial.html', 'update.html']) {
   cpSync(resolve(src, f), resolve(dist, f));
 }
 cpSync(resolve(src, 'icons'), resolve(dist, 'icons'), { recursive: true });

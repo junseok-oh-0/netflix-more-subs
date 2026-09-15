@@ -29,12 +29,6 @@ describe('fake-player fixture', () => {
     expect(watch.querySelectorAll('.watch-video--player-view').length).toBe(1);
   });
 
-  it('renders a Seek Back button two levels below the button row', () => {
-    const seek = document.querySelector('button[aria-label="Seek Back"]');
-    expect(seek).not.toBeNull();
-    expect(seek.parentElement.parentElement.className).toBe('button-row');
-  });
-
   it('builds subtitle containers in the shape content.js walks', () => {
     window.fakePlayer.showSubtitle(['a', 'b']);
     const row = document.querySelector('.player-timedtext');

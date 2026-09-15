@@ -29,12 +29,5 @@
   "action": {
     "default_icon": "icons/icon32.png",
     "default_popup": "popup.html"
-  },
-
-  "web_accessible_resources": [
-    {
-      "resources": ["/settings_box.html"],
-      "matches": ["https://www.netflix.com/*"]
-    }
-  ]
+  }
 }

@@ -1,12 +1,8 @@
 // Dual Subtitles for Netflix - content script
 //
-// Netflix ships two class-name variants ("normal" and one where everything ends in "Css");
-// both are handled inline via window.weird_classname_mode.
 // Chrome and Edge translators behave differently; both are handled here via window.edge.
 
 import { DEFAULT_PREFERENCES, loadPreferences, onPreferencesChanged } from './preferences.js';
-
-window.weird_classname_mode = 0;
 
 // UA sniffing is not foolproof but good enough to pick the translator workaround.
 window.edge = window.navigator.userAgent.includes('Edg/') ? 1 : 0;
@@ -56,12 +52,6 @@ function wait_for_player_to_finish_loading() {
   waitForElement(
     '#appMountPoint > div > div >div > div > div > div:nth-child(1) > div > div > div > div',
   ).then(function () {
-    try {
-      actual_create_buttons();
-    } catch {
-      // likely no bar visible
-    }
-
     // 1 would flip the text sides; disabled since the text moves too much
     window.original_text_side = 0;
 
@@ -92,16 +82,6 @@ window.video_change_observer.observe(document.documentElement, window.video_chan
 // Starts the observer that waits for the player to finish loading after a page/video change
 function prepare_for_dual_subs() {
   enable_right_click();
-
-  try {
-    actual_create_buttons();
-  } catch {
-    return;
-  }
-
-  // Buttons can no longer be created before the bottom bar is visible,
-  // so creation is moved to after the player is detected.
-  initialize_button_observer();
   wait_for_player_to_finish_loading();
 }
 
@@ -118,313 +98,6 @@ function enable_right_click() {
     );
     elements[i].oncontextmenu = null;
   }
-}
-
-function actual_create_buttons() {
-  if (document.getElementById('myTutorialButton')) {
-    return;
-  }
-
-  let buttonSpacing = document.createElement('DIV');
-  buttonSpacing.innerHTML = '<div class="ltr-1npqywr" style="min-width: 3rem; width: 3rem;"></div>';
-  buttonSpacing = buttonSpacing.firstElementChild;
-  try {
-    document
-      .querySelector('button[aria-label="Seek Back"]')
-      .parentElement.parentElement.appendChild(buttonSpacing);
-  } catch {
-    return;
-  }
-
-  let buttonOne = document.createElement('DIV');
-
-  let button_top_color = window.text_color;
-  let button_bottom_color = window.originaltext_color;
-  if (!button_bottom_color && !button_top_color) {
-    button_top_color = 'yellow';
-    button_bottom_color = 'white';
-  }
-
-  buttonOne.innerHTML = `<div class="medium ltr-1dcjcj4" id="myTutorialButton"><button aria-label="Open Tutorial" class=" ltr-1enhvti" data-uia="control-fontsize-minus">\
-    <div class="control-medium ltr-iyulz3" role="presentation"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" class="Hawkins-Icon Hawkins-Icon-Standard">\
-    <g xmlns="http://www.w3.org/2000/svg"><rect stroke-width="2" stroke="white" id="svg_2" height="14" width="22" y="4.93751" x="1" fill="transparent"></rect>\
-    <path stroke="#000" id="dsubs_svg_9" d="m3.01532,8.13163l9.68748,0l0,2.5l-9.68748,0l0,-2.5z" stroke-width=".5" fill="${button_bottom_color}"></path>\
-    <path stroke="#000" id="dsubs_svg_12" d="m13.48405,8.16288l7.28124,0l0,2.49999l-7.28124,0l0,-2.49999z" stroke-width=".5" fill="${button_bottom_color}"></path>\
-    <path opacity="0.7" stroke="#000" id="dsubs_svg_13" d="m4.14032,12.10037l9.96874,0l0,1.81249l-9.96874,0l0,-1.81249z" stroke-width=".5" fill="${button_top_color}"></path>\
-    <path opacity="0.7" stroke="#000" id="dsubs_svg_15" d="m14.60905,12.13162l5.40625,0l0,1.81249l-5.40625,0l0,-1.81249z" stroke-width=".5" fill="${button_top_color}"></path></g></svg></div></button></div>`;
-  if (window.weird_classname_mode) {
-    buttonOne.innerHTML =
-      '<div class="medium ltr-1dcjcj4" id="myTutorialButton"><button aria-label="Open Tutorial" class=" ltr-1enhvti" data-uia="control-fontsize-minus"><div class="control-medium ltr-iyulz3" role="presentation"><svg width="24" height="24" viewBox="-1 0 24 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" class="Hawkins-Icon Hawkins-Icon-Standard"><g xmlns="http://www.w3.org/2000/svg"><rect stroke-width="2" stroke="white" id="svg_2" height="14" width="22" y="4.93751" x="1" fill="transparent"></rect><path stroke="#000" id="svg_9" d="m3.01532,8.13163l9.68748,0l0,2.5l-9.68748,0l0,-2.5z" stroke-width=".5" fill="yellow"></path><path stroke="#000" id="svg_12" d="m13.48405,8.16288l7.28124,0l0,2.49999l-7.28124,0l0,-2.49999z" stroke-width=".5" fill="yellow"></path><path opacity="0.7" stroke="#000" id="svg_13" d="m4.14032,12.10037l9.96874,0l0,1.81249l-9.96874,0l0,-1.81249z" stroke-width=".5" fill="white"></path><path opacity="0.7" stroke="#000" id="svg_15" d="m14.60905,12.13162l5.40625,0l0,1.81249l-5.40625,0l0,-1.81249z" stroke-width=".5" fill="white"></path></g></svg></div></button></div>';
-  }
-  buttonOne = buttonOne.firstElementChild;
-
-  try {
-    document
-      .querySelector('button[aria-label="Seek Back"]')
-      .parentElement.parentElement.appendChild(buttonOne);
-  } catch {
-    return;
-  }
-  buttonOne.onmouseenter = function () {
-    if (window.weird_classname_mode) {
-      buttonOne.firstChild.className = 'active ltr-1enhvti-controlButtonCss';
-    } else {
-      buttonOne.firstChild.className = 'active ltr-1enhvti';
-    }
-  };
-  buttonOne.onmouseleave = function () {
-    if (window.weird_classname_mode) {
-      buttonOne.firstChild.className = ' ltr-1enhvti-controlButtonCss';
-    } else {
-      buttonOne.firstChild.className = ' ltr-1enhvti';
-    }
-  };
-
-  buttonOne.addEventListener('click', function () {
-    open_settings_menu();
-  });
-}
-
-function open_settings_menu() {
-  if (document.getElementById('dsubs_settings-panel')) {
-    document.getElementById('dsubs_settings-panel').remove();
-    return;
-  }
-  fetch(chrome.runtime.getURL('/settings_box.html'))
-    .then((r) => r.text())
-    .then((html) => {
-      // insertAdjacentHTML rather than innerHTML so the page's own listeners survive
-      document.body.insertAdjacentHTML('beforeend', html);
-      draggable(document.getElementById('dsubs_banner'));
-      closeable(document.getElementById('dsubs_x-button'));
-      applyPreferencesToSettingsMenu();
-    });
-}
-
-function closeable(el) {
-  el.addEventListener('mousedown', function () {
-    document.getElementById('dsubs_settings-panel').remove();
-  });
-}
-
-function draggable(el) {
-  el.addEventListener('mousedown', function (e) {
-    const container = document.getElementById('dsubs_settings-panel');
-    if (!container) return;
-
-    const offsetX = e.clientX - parseInt(window.getComputedStyle(container).left);
-    const offsetY = e.clientY - parseInt(window.getComputedStyle(container).top);
-
-    function mouseMoveHandler(e) {
-      container.style.top = e.clientY - offsetY + 'px';
-      container.style.left = e.clientX - offsetX + 'px';
-    }
-
-    function reset() {
-      window.removeEventListener('mousemove', mouseMoveHandler);
-      window.removeEventListener('mouseup', reset);
-    }
-
-    window.addEventListener('mousemove', mouseMoveHandler);
-    window.addEventListener('mouseup', reset);
-  });
-}
-
-function applyPreferencesToSettingsMenu() {
-  const translatedTextSizeSlider = document.getElementById('dsubs_translatedTextSizeSlider');
-  const translatedTextSizeSliderValue = document.getElementById('dsubs_translatedTextSizeSliderValue');
-
-  const originalOpacitySlider = document.getElementById('dsubs_originalOpacitySlider');
-  const originalOpacitySliderValue = document.getElementById('dsubs_originalOpacitySliderValue');
-
-  const translatedOpacitySlider = document.getElementById('dsubs_translatedOpacitySlider');
-  const translatedOpacitySliderValue = document.getElementById('dsubs_translatedOpacitySliderValue');
-
-  const originalColorPicker = document.getElementById('dsubs_originalColorPicker');
-  const translatedColorPicker = document.getElementById('dsubs_translatedColorPicker');
-  const logoOriginalText = document.getElementById('dsubs_logo-top');
-  const logoTranslatedText = document.getElementById('dsubs_logo-bot');
-
-  const restoreDefaultsButton = document.getElementById('dsubs_restoreDefaultsButton');
-
-  const enableSubsValue = document.getElementById('dsubs_enableSubsValue');
-  const enableStackedSubsValue = document.getElementById('dsubs_enableStackedSubsValue');
-
-  translatedTextSizeSlider.value = window.current_multiplier;
-  translatedTextSizeSliderValue.innerHTML = window.current_multiplier;
-
-  translatedOpacitySlider.value = window.opacity;
-  translatedOpacitySliderValue.innerHTML = window.opacity;
-
-  originalOpacitySlider.value = window.originaltext_opacity;
-  originalOpacitySliderValue.innerHTML = window.originaltext_opacity;
-
-  translatedColorPicker.value = window.text_color;
-  logoTranslatedText.style.color = window.text_color;
-
-  originalColorPicker.value = window.originaltext_color;
-  logoOriginalText.style.color = window.originaltext_color;
-
-  enableSubsValue.checked = window.on_off;
-  enableStackedSubsValue.checked = window.up_down_mode;
-
-  restoreDefaultsButton.addEventListener(
-    'click',
-    function () {
-      translatedColorPicker.value = '#FFFFFF';
-      translatedColorPicker.dispatchEvent(new Event('input'));
-
-      originalColorPicker.value = '#FFF000';
-      originalColorPicker.dispatchEvent(new Event('input'));
-
-      translatedOpacitySlider.value = 0.8;
-      translatedOpacitySlider.dispatchEvent(new Event('change'));
-      originalOpacitySlider.value = 1;
-      originalOpacitySlider.dispatchEvent(new Event('change'));
-
-      translatedTextSizeSlider.value = 1;
-      translatedTextSizeSlider.dispatchEvent(new Event('change'));
-    },
-    false,
-  );
-
-  translatedTextSizeSlider.addEventListener(
-    'change',
-    function () {
-      translatedTextSizeSliderValue.innerHTML = this.value;
-      translatedTextSizeSlider.value = this.value;
-      chrome.runtime.sendMessage({
-        message: 'update_font_multiplier',
-        value: this.value,
-      });
-    },
-    false,
-  );
-
-  translatedOpacitySlider.addEventListener(
-    'change',
-    function () {
-      translatedOpacitySliderValue.innerHTML = this.value;
-      translatedOpacitySlider.value = this.value;
-      logoTranslatedText.style.opacity = this.value;
-      chrome.runtime.sendMessage({
-        message: 'update_opacity',
-        value: this.value,
-      });
-    },
-    false,
-  );
-
-  originalOpacitySlider.addEventListener(
-    'change',
-    function () {
-      originalOpacitySliderValue.innerHTML = this.value;
-      originalOpacitySlider.value = this.value;
-      logoOriginalText.style.opacity = this.value;
-      chrome.runtime.sendMessage({
-        message: 'update_originaltext_opacity',
-        value: this.value,
-      });
-    },
-    false,
-  );
-
-  translatedColorPicker.addEventListener(
-    'input',
-    function () {
-      translatedColorPicker.value = this.value;
-      logoTranslatedText.style.color = this.value;
-      chrome.runtime.sendMessage({
-        message: 'update_text_color',
-        value: this.value,
-      });
-    },
-    false,
-  );
-
-  originalColorPicker.addEventListener(
-    'input',
-    function () {
-      originalColorPicker.value = this.value;
-      logoOriginalText.style.color = this.value;
-      chrome.runtime.sendMessage({
-        message: 'update_originaltext_color',
-        value: this.value,
-      });
-    },
-    false,
-  );
-
-  enableSubsValue.addEventListener(
-    'change',
-    function () {
-      chrome.runtime.sendMessage({
-        message: 'update_on_off',
-        value: this.checked,
-      });
-    },
-    false,
-  );
-
-  enableStackedSubsValue.addEventListener(
-    'change',
-    function () {
-      chrome.runtime.sendMessage({
-        message: 'update_button_up_down_mode',
-        value: this.checked,
-      });
-    },
-    false,
-  );
-
-  // Tab switching
-  document.getElementById('dsubs_help_button').onclick = function () {
-    Array.from(document.querySelectorAll('.dsubs_activetab')).forEach((element) => {
-      element.classList.remove('dsubs_activetab');
-    });
-    document.getElementById('dsubs_help_tab').classList.add('dsubs_activetab');
-  };
-  document.getElementById('dsubs_preference_button').onclick = function () {
-    Array.from(document.querySelectorAll('.dsubs_activetab')).forEach((element) => {
-      element.classList.remove('dsubs_activetab');
-    });
-    document.getElementById('dsubs_preference_tab').classList.add('dsubs_activetab');
-  };
-  document.getElementById('dsubs_donate_button').onclick = function () {
-    Array.from(document.querySelectorAll('.dsubs_activetab')).forEach((element) => {
-      element.classList.remove('dsubs_activetab');
-    });
-    document.getElementById('dsubs_donation_tab').classList.add('dsubs_activetab');
-  };
-}
-
-// Tracks the bottom playback bar; Netflix destroys it rather than hiding it,
-// so the buttons have to be re-created every time it appears.
-function initialize_button_observer() {
-  const bottom_bar = document.getElementsByClassName('watch-video--player-view')[0];
-
-  window.button_config = { subtree: true, childList: false, attributes: true, attributeFilter: ['class'] };
-
-  const possible_bottom_bar_classnames = [
-    'active ltr-fntwn3',
-    'active ltr-omkt8s',
-    'active ltr-gwjau2-playerCss',
-  ];
-
-  const callback = function () {
-    // works but expensive
-    for (const curr_class_name of possible_bottom_bar_classnames) {
-      const check_for_bar = document.getElementsByClassName(curr_class_name);
-      // BUG: HTMLCollection is always truthy (fixed in Phase 4)
-      if (check_for_bar) {
-        actual_create_buttons();
-        break;
-      }
-    }
-  };
-
-  window.button_observer = new MutationObserver(callback);
-  window.button_observer.observe(bottom_bar, window.button_config);
 }
 
 function llsubs() {
@@ -781,16 +454,6 @@ function update_style(setting) {
     document.getElementsByClassName('player-timedtext')[0].firstChild.firstChild.style['color'] =
       window.originaltext_color;
 
-    try {
-      // Icon
-      document.getElementById('dsubs_svg_9').setAttribute('fill', window.originaltext_color);
-      document.getElementById('dsubs_svg_12').setAttribute('fill', window.originaltext_color);
-      document.getElementById('dsubs_svg_13').setAttribute('fill', window.text_color);
-      document.getElementById('dsubs_svg_15').setAttribute('fill', window.text_color);
-    } catch {
-      // button probably doesn't exist
-    }
-
     for (
       let i = 0;
       i < document.getElementsByClassName('player-timedtext')[0].firstChild.firstChild.children.length;
@@ -846,12 +509,6 @@ function applyPreferenceChange(key, value) {
       } catch {
         // no subs on screen
       }
-
-      try {
-        document.getElementById('myTutorialButton').style.display = 'block';
-      } catch {
-        actual_create_buttons();
-      }
     }
   }
 
@@ -878,15 +535,7 @@ function applyPreferenceChange(key, value) {
 
   if (key === 'originaltext_color') {
     window.originaltext_color = value;
-
     update_style('text_color');
-    try {
-      document
-        .getElementById('myTutorialButton')
-        .firstChild.firstChild.firstChild.firstElementChild.setAttribute('stroke', window.originaltext_color);
-    } catch {
-      // no button
-    }
   }
 
   if (key === 'button_up_down_mode') {

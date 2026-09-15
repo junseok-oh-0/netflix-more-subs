@@ -37,13 +37,6 @@ describe('content.js on the fake player', () => {
     expect(host.document.querySelector('.my-timedtext-container').style.color).toBe('rgb(255, 255, 255)');
   });
 
-  it('adds the player-bar button when a video loads', async () => {
-    await startPlayback(host);
-    const button = host.document.getElementById('myTutorialButton');
-    expect(button).not.toBeNull();
-    expect(button.parentElement.className).toBe('button-row');
-  });
-
   it('creates the translated-subtitle container inside .watch-video', async () => {
     await startPlayback(host);
     const mine = host.document.querySelector('.watch-video > .my-timedtext-container');
@@ -104,17 +97,12 @@ describe('content.js on the fake player', () => {
     expect(host.document.querySelector('.my-timedtext-container').style.display).toBe('block');
   });
 
-  it('re-creates the player-bar button after Netflix rebuilds the controls', async () => {
+  it('does not inject anything into the Netflix control bar', async () => {
     await startPlayback(host);
-    host.player.hideControls();
-    await tick();
-    expect(host.document.getElementById('myTutorialButton')).toBeNull();
-    host.player.showControls();
-    await tick();
-    expect(host.document.getElementById('myTutorialButton')).not.toBeNull();
+    expect(host.document.querySelector('.button-row').children.length).toBe(3);
   });
 
-  it('keeps mirroring subtitles after an episode change with a single button', async () => {
+  it('keeps mirroring subtitles after an episode change', async () => {
     await startPlayback(host);
     host.player.showSubtitle(['first']);
     await tick();
@@ -123,7 +111,6 @@ describe('content.js on the fake player', () => {
     await tick();
     expect(host.document.querySelectorAll('.my-timedtext-container').length).toBe(1);
     expect(host.document.querySelector('.my-timedtext-container').textContent).toBe('second');
-    expect(host.document.querySelectorAll('#myTutorialButton').length).toBe(1);
     expect(host.window.__errors).toEqual([]);
   });
 
