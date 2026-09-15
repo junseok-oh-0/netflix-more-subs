@@ -96,10 +96,13 @@ describe('storage adapters', () => {
     expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledWith({ font_multiplier: 1.3 });
   });
 
-  it('savePreferences writes a full normalized set', async () => {
+  it('savePreferences writes only the known keys it is given, normalized', async () => {
     stubChrome();
-    await savePreferences(DEFAULT_PREFERENCES);
-    expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledWith(DEFAULT_PREFERENCES);
+    await savePreferences({ font_multiplier: '1.3', text_color: '#00ff00', junk: 1 });
+    expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledWith({
+      font_multiplier: 1.3,
+      text_color: '#00ff00',
+    });
   });
 
   it('onPreferencesChanged reports sync changes per known key, normalized', () => {

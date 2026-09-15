@@ -49,7 +49,11 @@ export function savePreference(key, value) {
 }
 
 export function savePreferences(values) {
-  return chrome.storage.sync.set(normalizePreferences(values));
+  const out = {};
+  for (const key of Object.keys(values)) {
+    if (key in DEFAULT_PREFERENCES) out[key] = normalizeValue(key, values[key]);
+  }
+  return chrome.storage.sync.set(out);
 }
 
 export function onPreferencesChanged(callback) {
