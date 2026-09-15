@@ -1,5 +1,5 @@
-// Characterization tests: pin down what content.js v1.9 does today so refactors can be checked
-// against it. These describe observed behavior, not desired behavior.
+// Behavior of the content script on the fake player. These pin down what the extension does so
+// refactors can be checked against it.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { loadExtension, tick } from './helpers/extension-host.js';
 
@@ -9,7 +9,9 @@ async function startPlayback(host) {
   await tick();
 }
 
-describe('content.js on the fake player', () => {
+const mine = (host) => host.document.querySelector('.my-timedtext-container');
+
+describe('content script on the fake player', () => {
   let host;
 
   beforeEach(async () => {
@@ -23,32 +25,32 @@ describe('content.js on the fake player', () => {
     await startPlayback(host);
     host.player.showSubtitle(['x']);
     await tick();
-    expect(host.document.querySelector('.my-timedtext-container').style.color).toBe('rgb(0, 255, 0)');
-    expect(host.window.on_off).toBe(true);
-    expect(host.window.up_down_mode).toBe(false);
+    expect(mine(host).style.color).toBe('rgb(0, 255, 0)');
+    expect(mine(host).style.left).not.toBe('50%');
+    expect(mine(host).style.whiteSpace).toBe('pre-wrap');
   });
 
-  it('falls back to defaults when storage is empty', async () => {
+  it('falls back to defaults when storage is empty (stacked, white)', async () => {
     await startPlayback(host);
     host.player.showSubtitle(['x']);
     await tick();
-    expect(host.window.on_off).toBe(true);
-    expect(host.window.current_multiplier).toBe(1);
-    expect(host.document.querySelector('.my-timedtext-container').style.color).toBe('rgb(255, 255, 255)');
+    expect(mine(host).style.color).toBe('rgb(255, 255, 255)');
+    expect(mine(host).style.whiteSpace).toBe('nowrap');
+    expect(host.document.getElementById('dsubs-single-line')).not.toBeNull();
   });
 
   it('creates the translated-subtitle container inside .watch-video', async () => {
     await startPlayback(host);
-    const mine = host.document.querySelector('.watch-video > .my-timedtext-container');
-    expect(mine).not.toBeNull();
-    expect(mine.getAttribute('translate')).toBe('yes');
+    const el = host.document.querySelector('.watch-video > .my-timedtext-container');
+    expect(el).not.toBeNull();
+    expect(el.getAttribute('translate')).toBe('yes');
   });
 
   it('mirrors a one-container subtitle into its own container', async () => {
     await startPlayback(host);
     host.player.showSubtitle(['Hei, verden.']);
     await tick();
-    expect(host.document.querySelector('.my-timedtext-container').textContent).toBe('Hei, verden.');
+    expect(mine(host).textContent).toBe('Hei, verden.');
     expect(host.window.__errors).toEqual([]);
   });
 
@@ -56,17 +58,17 @@ describe('content.js on the fake player', () => {
     await startPlayback(host);
     host.player.showSubtitle(['Linje en', 'Linje to'], { containers: 2 });
     await tick();
-    const originals = host.document.querySelectorAll('.player-timedtext-text-container');
-    expect(originals.length).toBe(1);
-    expect(host.document.querySelector('.my-timedtext-container').textContent).toBe('Linje en\nLinje to');
+    expect(host.document.querySelectorAll('.player-timedtext-text-container').length).toBe(1);
+    expect(mine(host).textContent).toBe('Linje en\nLinje to');
   });
 
   it('marks the original subtitle as not-to-translate', async () => {
     await startPlayback(host);
     host.player.showSubtitle(['x']);
     await tick();
-    const original = host.document.querySelector('.player-timedtext-text-container');
-    expect(original.getAttribute('translate')).toBe('no');
+    expect(host.document.querySelector('.player-timedtext-text-container').getAttribute('translate')).toBe(
+      'no',
+    );
   });
 
   it('empties its container when Netflix clears the subtitle', async () => {
@@ -75,7 +77,7 @@ describe('content.js on the fake player', () => {
     await tick();
     host.player.clearSubtitle();
     await tick();
-    expect(host.document.querySelector('.my-timedtext-container').textContent).toBe('');
+    expect(mine(host).textContent).toBe('');
   });
 
   it('applies translated text color when storage changes', async () => {
@@ -83,18 +85,29 @@ describe('content.js on the fake player', () => {
     host.player.showSubtitle(['x']);
     await tick();
     host.chrome.changePreference('text_color', '#ff0000');
-    const mine = host.document.querySelector('.my-timedtext-container');
-    expect(mine.style.color).toBe('rgb(255, 0, 0)');
+    expect(mine(host).style.color).toBe('rgb(255, 0, 0)');
   });
 
-  it('hides its container when dual subs are switched off', async () => {
+  it('hides its container and the single-line style when dual subs are switched off', async () => {
     await startPlayback(host);
     host.player.showSubtitle(['x']);
     await tick();
     host.chrome.changePreference('on_off', false);
-    expect(host.document.querySelector('.my-timedtext-container').style.display).toBe('none');
+    expect(mine(host).style.display).toBe('none');
+    expect(host.document.getElementById('dsubs-single-line')).toBeNull();
     host.chrome.changePreference('on_off', true);
-    expect(host.document.querySelector('.my-timedtext-container').style.display).toBe('block');
+    expect(mine(host).style.display).toBe('block');
+    expect(host.document.getElementById('dsubs-single-line')).not.toBeNull();
+  });
+
+  it('keeps exactly one injected style across stacked-mode toggles', async () => {
+    await startPlayback(host);
+    host.chrome.changePreference('button_up_down_mode', false);
+    host.chrome.changePreference('button_up_down_mode', true);
+    host.chrome.changePreference('button_up_down_mode', true);
+    expect(host.document.querySelectorAll('#dsubs-single-line').length).toBe(1);
+    host.chrome.changePreference('button_up_down_mode', false);
+    expect(host.document.querySelectorAll('#dsubs-single-line').length).toBe(0);
   });
 
   it('does not inject anything into the Netflix control bar', async () => {
@@ -102,7 +115,7 @@ describe('content.js on the fake player', () => {
     expect(host.document.querySelector('.button-row').children.length).toBe(3);
   });
 
-  it('keeps mirroring subtitles after an episode change', async () => {
+  it('keeps mirroring subtitles after a new title remounts the player view', async () => {
     await startPlayback(host);
     host.player.showSubtitle(['first']);
     await tick();
@@ -110,7 +123,21 @@ describe('content.js on the fake player', () => {
     host.player.showSubtitle(['second']);
     await tick();
     expect(host.document.querySelectorAll('.my-timedtext-container').length).toBe(1);
-    expect(host.document.querySelector('.my-timedtext-container').textContent).toBe('second');
+    expect(mine(host).textContent).toBe('second');
+    expect(host.window.__errors).toEqual([]);
+  });
+
+  it('SM-1: keeps mirroring when autoplay swaps .player-timedtext without remounting the player view', async () => {
+    await startPlayback(host);
+    host.player.showSubtitle(['episode one']);
+    await tick();
+    host.player.nextEpisode();
+    await tick();
+    await tick();
+    host.player.showSubtitle(['episode two']);
+    await tick();
+    expect(host.document.querySelectorAll('.my-timedtext-container').length).toBe(1);
+    expect(mine(host).textContent).toBe('episode two');
     expect(host.window.__errors).toEqual([]);
   });
 
@@ -123,10 +150,9 @@ describe('content.js on the fake player', () => {
     host.player.setInset(30);
     await tick();
     expect(host.window.__errors).toEqual([]);
-    expect(host.document.querySelector('.my-timedtext-container').textContent).toBe('flat');
+    expect(mine(host).textContent).toBe('flat');
   });
 
   // Defects found in the 2026-09-15 live smoke test (REFACTORING_PLAN.md §5)
-  it.todo('SM-1: keeps mirroring when autoplay swaps .player-timedtext without remounting the player view');
   it.todo('SM-2: places the translated line fully below a two-line original subtitle');
 });

@@ -24,7 +24,7 @@
   <body>
     <div id="panel">
       <button data-act="loadVideo">Load video</button>
-      <button data-act="nextVideo">Next episode (autoplay)</button>
+      <button data-act="nextEpisode">Next episode (autoplay)</button>
       <span>|</span>
       <button data-act="sub1">Subtitle (1 line)</button>
       <button data-act="sub2">Subtitle (2 lines, 1 container)</button>
@@ -100,6 +100,19 @@
           $('.watch-video').appendChild(view);
           showControls();
           log(`video loaded: ${id}`);
+          return id;
+        }
+
+        // Autoplay keeps the player view and only swaps the caption node (SM-1).
+        function nextEpisode(id = ++videoCounter) {
+          history.replaceState(null, '', `/watch/${id}?trackId=1`);
+          const view = $('.watch-video--player-view');
+          const old = view.querySelector('.player-timedtext');
+          const fresh = document.createElement('div');
+          fresh.className = 'player-timedtext';
+          fresh.style.inset = '0px 0px 0px 0px';
+          old.replaceWith(fresh);
+          log(`autoplay next episode: ${id} (caption node swapped)`);
           return id;
         }
 
@@ -221,7 +234,7 @@
         // --- Panel wiring ---------------------------------------------------
         const actions = {
           loadVideo: () => loadVideo(),
-          nextVideo: () => loadVideo(),
+          nextEpisode: () => nextEpisode(),
           sub1: () => showSubtitle([SAMPLE[0]]),
           sub2: () => showSubtitle([SAMPLE[1], SAMPLE[2]]),
           sub2c: () => showSubtitle([SAMPLE[1], SAMPLE[2]], { containers: 2 }),
@@ -240,7 +253,7 @@
         showControls();
 
         window.fakePlayer = {
-          loadVideo, showSubtitle, clearSubtitle, setInset,
+          loadVideo, nextEpisode, showSubtitle, clearSubtitle, setInset,
           showControls, hideControls, autoplay, stopAutoplay, setTranslator, SAMPLE,
         };
       })();

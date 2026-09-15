@@ -1,19 +1,12 @@
-// Guards the DOM contract between the fixture page and the selectors content.js relies on.
+// Guards the DOM contract between the fixture page and the selectors the extension relies on.
 import { describe, expect, it } from 'vitest';
 import { createFixtureDom } from './helpers/extension-host.js';
-
-const PLAYER_ROOT_SELECTOR =
-  '#appMountPoint > div > div >div > div > div > div:nth-child(1) > div > div > div > div';
 
 describe('fake-player fixture', () => {
   const { window } = createFixtureDom();
   const { document } = window;
 
-  it('exposes the player root at the depth content.js waits for', () => {
-    expect(document.querySelector(PLAYER_ROOT_SELECTOR)).not.toBeNull();
-  });
-
-  it('has the containers content.js queries by class', () => {
+  it('has the containers the extension queries by class', () => {
     for (const cls of ['watch-video', 'watch-video--player-view', 'player-timedtext']) {
       expect(document.getElementsByClassName(cls).length, cls).toBe(1);
     }
@@ -29,7 +22,16 @@ describe('fake-player fixture', () => {
     expect(watch.querySelectorAll('.watch-video--player-view').length).toBe(1);
   });
 
-  it('builds subtitle containers in the shape content.js walks', () => {
+  it('swaps only .player-timedtext on autoplay, keeping the player view', () => {
+    const view = document.querySelector('.watch-video--player-view');
+    const before = view.querySelector('.player-timedtext');
+    window.fakePlayer.nextEpisode();
+    expect(document.querySelector('.watch-video--player-view')).toBe(view);
+    expect(view.querySelector('.player-timedtext')).not.toBe(before);
+    expect(document.querySelectorAll('.player-timedtext').length).toBe(1);
+  });
+
+  it('builds subtitle containers in the shape the extension walks', () => {
     window.fakePlayer.showSubtitle(['a', 'b']);
     const row = document.querySelector('.player-timedtext');
     expect(row.childElementCount).toBe(1);
