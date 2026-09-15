@@ -1,10 +1,25 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { buildSync } from 'esbuild';
 import { JSDOM } from 'jsdom';
 
 const root = resolve(import.meta.dirname, '../..');
 const fixtureHtml = readFileSync(resolve(root, 'test/fixtures/fake-player.html'), 'utf8');
-const contentSrc = readFileSync(resolve(root, 'content.js'), 'utf8');
+
+const bundleCache = new Map();
+export function bundleEntry(name) {
+  if (!bundleCache.has(name)) {
+    const result = buildSync({
+      entryPoints: [resolve(root, 'src', name)],
+      bundle: true,
+      write: false,
+      format: 'iife',
+      target: 'chrome110',
+    });
+    bundleCache.set(name, result.outputFiles[0].text);
+  }
+  return bundleCache.get(name);
+}
 
 export const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms));
 
@@ -58,7 +73,7 @@ export async function loadExtension({ preferences = null } = {}) {
   const chrome = installChromeStub(window, { preferences });
   window.__errors = [];
   window.addEventListener('error', (e) => window.__errors.push(e.error ?? e.message));
-  window.eval(contentSrc);
+  window.eval(bundleEntry('content.js'));
   await tick();
   return { dom, window, document: window.document, chrome, player: window.fakePlayer };
 }

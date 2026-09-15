@@ -5,9 +5,9 @@ export default [
   { ignores: ['dist/**', 'node_modules/**'] },
   js.configs.recommended,
   {
-    files: ['*.js'],
+    files: ['src/**/*.js'],
     languageOptions: {
-      sourceType: 'script',
+      sourceType: 'module',
       globals: { ...globals.browser, ...globals.webextensions },
     },
   },
