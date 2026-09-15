@@ -23,26 +23,34 @@ export function bundleEntry(name) {
 
 export const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms));
 
-export function installChromeStub(window, { preferences = null } = {}) {
-  const listeners = [];
-  const sent = [];
+// In-memory chrome.storage.sync; changePreference() behaves like another context writing to it.
+export function installChromeStub(window, { preferences = {} } = {}) {
+  const store = { ...preferences };
+  const changeListeners = [];
+  const writes = [];
   window.chrome = {
-    runtime: {
-      sendMessage(msg) {
-        sent.push(msg);
-        if (msg.message === 'request_preferences') {
-          setTimeout(() => dispatch({ message: 'user_preferences', value: preferences }), 0);
-        }
+    runtime: { getURL: (p) => 'chrome-extension://test' + p },
+    storage: {
+      sync: {
+        get: async () => ({ ...store }),
+        set: async (values) => {
+          writes.push(values);
+          changePreference(values);
+        },
       },
-      onMessage: { addListener: (fn) => listeners.push(fn) },
-      getURL: (p) => 'chrome-extension://test' + p,
+      onChanged: { addListener: (fn) => changeListeners.push(fn) },
     },
-    storage: { sync: { get: (_k, cb) => cb({}), set() {} } },
   };
-  function dispatch(msg) {
-    listeners.forEach((fn) => fn(msg, {}, () => {}));
+  function changePreference(keyOrValues, value) {
+    const values = typeof keyOrValues === 'string' ? { [keyOrValues]: value } : keyOrValues;
+    const changes = {};
+    for (const [k, v] of Object.entries(values)) {
+      changes[k] = { oldValue: store[k], newValue: v };
+      store[k] = v;
+    }
+    changeListeners.forEach((fn) => fn(changes, 'sync'));
   }
-  return { sent, dispatch };
+  return { store, writes, changePreference };
 }
 
 function polyfillInnerText(window) {
@@ -66,7 +74,7 @@ export function createFixtureDom() {
   });
 }
 
-export async function loadExtension({ preferences = null } = {}) {
+export async function loadExtension({ preferences = {} } = {}) {
   const dom = createFixtureDom();
   const { window } = dom;
   polyfillInnerText(window);

@@ -16,8 +16,25 @@ describe('content.js on the fake player', () => {
     host = await loadExtension();
   });
 
-  it('requests preferences from the background on load', () => {
-    expect(host.chrome.sent[0]).toEqual({ message: 'request_preferences', value: 'please' });
+  it('applies stored preferences on load, through normalization', async () => {
+    host = await loadExtension({
+      preferences: { text_color: '#00ff00', on_off: 1, button_up_down_mode: false },
+    });
+    await startPlayback(host);
+    host.player.showSubtitle(['x']);
+    await tick();
+    expect(host.document.querySelector('.my-timedtext-container').style.color).toBe('rgb(0, 255, 0)');
+    expect(host.window.on_off).toBe(true);
+    expect(host.window.up_down_mode).toBe(false);
+  });
+
+  it('falls back to defaults when storage is empty', async () => {
+    await startPlayback(host);
+    host.player.showSubtitle(['x']);
+    await tick();
+    expect(host.window.on_off).toBe(true);
+    expect(host.window.current_multiplier).toBe(1);
+    expect(host.document.querySelector('.my-timedtext-container').style.color).toBe('rgb(255, 255, 255)');
   });
 
   it('adds the player-bar button when a video loads', async () => {
@@ -68,11 +85,11 @@ describe('content.js on the fake player', () => {
     expect(host.document.querySelector('.my-timedtext-container').textContent).toBe('');
   });
 
-  it('applies translated text color from an update message', async () => {
+  it('applies translated text color when storage changes', async () => {
     await startPlayback(host);
     host.player.showSubtitle(['x']);
     await tick();
-    host.chrome.dispatch({ message: 'update_text_color', value: '#ff0000' });
+    host.chrome.changePreference('text_color', '#ff0000');
     const mine = host.document.querySelector('.my-timedtext-container');
     expect(mine.style.color).toBe('rgb(255, 0, 0)');
   });
@@ -81,9 +98,9 @@ describe('content.js on the fake player', () => {
     await startPlayback(host);
     host.player.showSubtitle(['x']);
     await tick();
-    host.chrome.dispatch({ message: 'update_on_off', value: false });
+    host.chrome.changePreference('on_off', false);
     expect(host.document.querySelector('.my-timedtext-container').style.display).toBe('none');
-    host.chrome.dispatch({ message: 'update_on_off', value: true });
+    host.chrome.changePreference('on_off', true);
     expect(host.document.querySelector('.my-timedtext-container').style.display).toBe('block');
   });
 

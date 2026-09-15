@@ -4,28 +4,18 @@
 // both are handled inline via window.weird_classname_mode.
 // Chrome and Edge translators behave differently; both are handled here via window.edge.
 
-window.weird_classname_mode = 0;
+import { DEFAULT_PREFERENCES, loadPreferences, onPreferencesChanged } from './preferences.js';
 
-window.default_preferences = {
-  font_multiplier: 1,
-  text_color: '#FFFFFF',
-  opacity: 0.8,
-  on_off: 1,
-  button_on_off: 1,
-  originaltext_opacity: 1,
-  button_up_down_mode: 1,
-  originaltext_color: '#fff000',
-};
+window.weird_classname_mode = 0;
 
 // UA sniffing is not foolproof but good enough to pick the translator workaround.
 window.edge = window.navigator.userAgent.includes('Edg/') ? 1 : 0;
 
-// Storage retrieval is too slow to affect the first subtitles, so request early on script load.
-try {
-  requestPreferencesFromBackground();
-} catch {
-  window.up_down_mode = 1;
-}
+// Storage is the single source of truth; the popup writes to it and this script reacts.
+loadPreferences()
+  .catch(() => DEFAULT_PREFERENCES)
+  .then(applyPreferences);
+onPreferencesChanged(applyPreferenceChange);
 
 function waitForElement(selector) {
   return new Promise(function (resolve) {
@@ -51,18 +41,7 @@ function waitForElement(selector) {
   });
 }
 
-function requestPreferencesFromBackground() {
-  chrome.runtime.sendMessage({
-    message: 'request_preferences',
-    value: 'please',
-  });
-}
-
-function loadPreferences(prefs) {
-  if (prefs == null) {
-    prefs = window.default_preferences;
-  }
-
+function applyPreferences(prefs) {
   window.on_off = prefs['on_off'];
   window.up_down_mode = prefs['button_up_down_mode'];
   window.current_multiplier = prefs['font_multiplier'];
@@ -825,16 +804,10 @@ function update_style(setting) {
   }
 }
 
-// Messages from the background script (preferences controller)
-chrome.runtime.onMessage.addListener(function (request) {
-  if (request.message === 'user_preferences') {
-    loadPreferences(request.value);
-  }
-  if (request.message === 'open_settings_menu') {
-    open_settings_menu();
-  }
-  if (request.message === 'update_on_off') {
-    window.on_off = request.value;
+// Applies one changed preference to the live subtitles. Values arrive normalized from preferences.js.
+function applyPreferenceChange(key, value) {
+  if (key === 'on_off') {
+    window.on_off = value;
     if (!window.on_off) {
       try {
         window.my_timedtext_element.style['display'] = 'none';
@@ -882,46 +855,29 @@ chrome.runtime.onMessage.addListener(function (request) {
     }
   }
 
-  if (request.message === 'update_button_on_off') {
-    window.button_on_off = request.value;
-    if (!window.button_on_off) {
-      try {
-        document.getElementById('myTutorialButton').style.display = 'none';
-      } catch {
-        // no button
-      }
-    } else {
-      try {
-        document.getElementById('myTutorialButton').style.display = 'block';
-      } catch {
-        actual_create_buttons();
-      }
-    }
-  }
-
-  if (request.message === 'update_font_multiplier') {
-    window.current_multiplier = parseFloat(request.value);
-    window.current_size = window.baseFont * request.value + 'px';
+  if (key === 'font_multiplier') {
+    window.current_multiplier = value;
+    window.current_size = window.baseFont * value + 'px';
     update_style('font_size');
   }
 
-  if (request.message === 'update_text_color') {
-    window.text_color = request.value;
+  if (key === 'text_color') {
+    window.text_color = value;
     update_style('text_color');
   }
 
-  if (request.message === 'update_opacity') {
-    window.opacity = parseFloat(request.value);
+  if (key === 'opacity') {
+    window.opacity = value;
     update_style('opacity');
   }
 
-  if (request.message === 'update_originaltext_opacity') {
-    window.originaltext_opacity = parseFloat(request.value);
+  if (key === 'originaltext_opacity') {
+    window.originaltext_opacity = value;
     update_style('opacity');
   }
 
-  if (request.message === 'update_originaltext_color') {
-    window.originaltext_color = request.value;
+  if (key === 'originaltext_color') {
+    window.originaltext_color = value;
 
     update_style('text_color');
     try {
@@ -933,8 +889,8 @@ chrome.runtime.onMessage.addListener(function (request) {
     }
   }
 
-  if (request.message === 'update_button_up_down_mode') {
-    window.up_down_mode = request.value;
+  if (key === 'button_up_down_mode') {
+    window.up_down_mode = value;
 
     if (!window.up_down_mode) {
       // Turning stacked mode off
@@ -1029,4 +985,4 @@ chrome.runtime.onMessage.addListener(function (request) {
       }
     }
   }
-});
+}
