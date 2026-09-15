@@ -7,7 +7,7 @@
 
 | # | 결정 | 내용 |
 |---|---|---|
-| 1 | 설정 UI 일원화 | **`popup.html`(확장 프로그램 기본 액션 팝업)을 남기고 `settings_box.html`(인페이지 패널)을 삭제**한다. 설정 로직은 한 벌만 존재해야 한다. 플레이바 버튼의 역할은 Phase 2에서 재정의한다 (후보: `chrome.action.openPopup()` 호출, 또는 on/off 토글 버튼으로 축소). |
+| 1 | 설정 UI 일원화 | **`popup.html`(확장 프로그램 기본 액션 팝업)을 남기고 `settings_box.html`(인페이지 패널)을 삭제**한다. 설정 로직은 한 벌만 존재해야 한다. **플레이바 버튼은 제거** (2026-09-15 확정, Phase 2에서 적용). |
 | 2 | 번들러 도입 | **esbuild** 도입. `src/` → `dist/` 빌드, `dist/`를 언팩 확장으로 로드한다. |
 | 3 | TypeScript | Phase 3(모듈 분리) 완료 이후로 미룬다. 정리 작업과 타입 작업을 섞지 않는다. |
 
@@ -93,11 +93,12 @@
 - `src/preferences.js`: `DEFAULT_PREFERENCES` 단일 정의, `normalize()` (타입 강제, 결측 기본값) — 단위 테스트
 - background: 설치 시 기본값 저장만. 캐시·중계 삭제
 - content: 시작 시 `storage.sync.get`, 이후 `storage.onChanged`. 메시지 핸들러 9개 삭제
-- **결정 1 적용**: `settings_box.html` 및 `applyPreferencesToSettingsMenu`/`draggable`/`closeable` 삭제. `popup.js`가 유일한 설정 UI. 플레이바 버튼 역할 재정의
+- **결정 1 적용**: `settings_box.html` 및 `applyPreferencesToSettingsMenu`/`draggable`/`closeable` 삭제. `popup.js`가 유일한 설정 UI. 플레이바 버튼 제거
+- 완료: `docs/REFACTORING_PHASE_2.md`
 - falsy 리셋 버그 자연 해소
 
 ### Phase 3 — content.js 모듈 분리
-**셀렉터 원칙 (Phase 1 스모크에서 확인)**: 해시 클래스명(`ltr-*`)은 Netflix 배포마다 바뀌므로 쓰지 않는다. `watch-video`, `watch-video--player-view`, `player-timedtext`, `player-timedtext-text-container`, `aria-label` 같은 안정적인 이름만 `netflix-selectors.js`에 둔다. `weird_classname_mode`와 그 분기(버튼 SVG 2벌, hover 클래스)는 도달 불가이므로 삭제한다. 버튼 hover 강조도 해시 클래스 대신 자체 스타일로 처리한다.
+**셀렉터 원칙 (Phase 1 스모크에서 확인)**: 해시 클래스명(`ltr-*`)은 Netflix 배포마다 바뀌므로 쓰지 않는다. `watch-video`, `watch-video--player-view`, `player-timedtext`, `player-timedtext-text-container`, `aria-label` 같은 안정적인 이름만 `netflix-selectors.js`에 둔다. (`weird_classname_mode`와 플레이바 버튼은 Phase 2에서 이미 삭제됨.)
 ```
 src/
   content.js            # 진입점: 세션 생성/파괴
@@ -106,14 +107,12 @@ src/
   player-watcher.js     # 비디오 전환 감지 (SM-1 해결 지점)
   layout.js             # 순수: computeBottom(), computeLeft(), fitFontSize()
   subtitles.js          # 컨테이너 생성, mergeContainers(), addSubs, 옵저버 소유
-  player-button.js      # 플레이바 버튼
   preferences.js        # Phase 2 산출물
 ```
 - `window.*` → 세션 상태 객체 하나
 - 4회 중복 계산 → `layout.js` 함수 1개씩
 - **SM-1 (자동재생)**: `player-watcher.js`는 (a) `.watch-video--player-view` 재마운트 외에 (b) `.player-timedtext` 노드가 교체되는 경우도 비디오 전환으로 취급한다. 픽스처에 `nextEpisode()`(플레이어 뷰 유지, timedtext만 교체 + URL 변경)를 추가해 테스트로 고정
 - **SM-3 (긴 자막 축소)**: `fitFontSize()`를 순수 함수로 빼면서 단위 테스트 (스모크에서 검증 안 된 항목)
-- **SM-4 (버튼 hover)**: `player-button.js`에서 해시 클래스 대신 자체 스타일
 
 ### Phase 4 — 버그 수정 (각각 별도 커밋 + 테스트)
 - 요소 참조 덮어쓰기(`my_timedtext_element = original_subs`), `HTMLCollection` truthy, `.style` 없는 대입, `injected-style` 누적, `old_inset` 미갱신
@@ -141,7 +140,7 @@ Netflix 실제 DOM에서만 확인되는 동작이 있어 자동 테스트만으
 | SM-1 | C-1 자동재생 | 다음 에피소드로 넘어가면 번역 자막이 안 나옴. 플레이바 버튼은 유지, 콘솔 에러 없음, on/off 토글해도 안 나옴. 뒤로가기→다른 타이틀은 정상 | 자동재생 시 Netflix가 `.watch-video--player-view`를 재마운트하지 않고 내부의 `.player-timedtext`만 교체하는 것으로 보임. 버튼이 남아 있는 것이 그 증거. `window.observer`는 떨어져 나간 옛 `.player-timedtext`를 계속 감시하므로 자막 이벤트를 못 받는다. (`d5a7d2d`에서 삭제한 옛 세 번째 조건이 이 케이스용이었으나 해시 DOM에 의존해 어차피 동작 안 함) | **Phase 3** `player-watcher.js` — `.player-timedtext` 교체를 두 번째 트리거로 추가. 옛 옵저버 정리는 Phase 5 |
 | SM-2 | B-3 두 줄 자막 | 원문 아랫줄과 번역 윗줄이 겹침 | 번역 컨테이너 `bottom`이 `sub_bot − baseFont×mult − 10`으로 원본이 1줄이라고 가정. 원본이 2줄이면 그만큼 아래로 더 내려야 함 | **Phase 4** — `layout.js` 추출 후 실측 박스 기반으로 수정 |
 | SM-3 | B-4 긴 자막 축소 | 검증 안 됨 (재현할 긴 자막이 없었음) | — | **Phase 3** — `fitFontSize()` 순수 함수 단위 테스트로 대체 |
-| SM-4 | D-2 버튼 hover | 강조는 되나 Netflix 버튼과 다름 (정상 판정) | hover 시 해시 클래스(`ltr-1enhvti`)를 붙이는데 현재 Netflix에 존재하지 않는 클래스 | **Phase 3** `player-button.js` — 자체 스타일로 교체 (이미 셀렉터 원칙에 포함) |
+| SM-4 | D-2 버튼 hover | 강조는 되나 Netflix 버튼과 다름 (정상 판정) | hover 시 해시 클래스(`ltr-1enhvti`)를 붙이는데 현재 Netflix에 존재하지 않는 클래스 | **해소** — Phase 2에서 버튼 자체를 제거 (`82912c7`) |
 | SM-5 | G Edge | 미실행 | — | 리스크로 유지. `window.edge` 분기는 검증 수단이 없으므로 리팩토링 시 로직을 바꾸지 않고 옮기기만 한다 |
 
 A-4(콘솔 XHR 에러)와 D-1(컨트롤 바는 x로만 닫힘)은 확장과 무관하거나 정상 동작으로 판정, 조치 없음.
