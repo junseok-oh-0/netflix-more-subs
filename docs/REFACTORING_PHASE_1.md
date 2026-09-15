@@ -67,8 +67,15 @@ Netflix는 비디오마다 `.watch-video` 아래에 `.watch-video--player-view`�
 - 픽스처: `loadVideo()`가 `.watch-video--player-view` 전체를 제거 후 재마운트하도록 변경 (실제 Netflix 동작 모사). 클래스명 모드 선택 UI 삭제
 - 테스트: "Css 모드 감지" → "에피소드 전환 후에도 자막 미러링 유지 + 버튼 1개" 로 교체
 
-### 재확인 필요
-`docs/SMOKE_CHECKLIST.md` A~F 전체. 이번 수정으로 A-1이 통과하지 않으면 다음 의심 지점은 `wait_for_player_to_finish_loading()`의 구조 셀렉터 `#appMountPoint > div > … > div`이다 (버튼 생성 자체는 `button_observer`가 담당하므로 아이콘은 이 셀렉터와 무관하게 떠야 한다).
+### 재실행 결과 (2026-09-15, `d5a7d2d`)
+A·E·F 전부 통과. 실패/보류 항목은 계획서 §5에 SM-1~SM-5로 등록:
+- **SM-1** C-1 자동재생 후 번역 자막 없음 → Phase 3 `player-watcher.js`
+- **SM-2** B-3 두 줄 자막 겹침 → Phase 4
+- SM-3 긴 자막 축소 미검증 → Phase 3 단위 테스트
+- SM-4 버튼 hover 스타일 상이(정상 판정) → Phase 3
+- SM-5 Edge 미실행 → 리스크 유지
+
+Phase 2 진행에 지장 없음으로 판정.
 
 ## 다음 단계
 Phase 2 — 설정 파이프라인 단일화 (`docs/REFACTORING_PLAN.md` 참고).

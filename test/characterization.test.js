@@ -109,4 +109,8 @@ describe('content.js on the fake player', () => {
     expect(host.document.querySelectorAll('#myTutorialButton').length).toBe(1);
     expect(host.window.__errors).toEqual([]);
   });
+
+  // Defects found in the 2026-09-15 live smoke test (REFACTORING_PLAN.md §5)
+  it.todo('SM-1: keeps mirroring when autoplay swaps .player-timedtext without remounting the player view');
+  it.todo('SM-2: places the translated line fully below a two-line original subtitle');
 });

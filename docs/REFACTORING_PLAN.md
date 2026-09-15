@@ -103,7 +103,7 @@ src/
   content.js            # 진입점: 세션 생성/파괴
   netflix-selectors.js  # 안정적인 클래스명·셀렉터만
   dom.js                # waitForElement, injectStyle(id)/removeStyle(id)
-  player-watcher.js     # 비디오 전환 감지
+  player-watcher.js     # 비디오 전환 감지 (SM-1 해결 지점)
   layout.js             # 순수: computeBottom(), computeLeft(), fitFontSize()
   subtitles.js          # 컨테이너 생성, mergeContainers(), addSubs, 옵저버 소유
   player-button.js      # 플레이바 버튼
@@ -111,13 +111,17 @@ src/
 ```
 - `window.*` → 세션 상태 객체 하나
 - 4회 중복 계산 → `layout.js` 함수 1개씩
+- **SM-1 (자동재생)**: `player-watcher.js`는 (a) `.watch-video--player-view` 재마운트 외에 (b) `.player-timedtext` 노드가 교체되는 경우도 비디오 전환으로 취급한다. 픽스처에 `nextEpisode()`(플레이어 뷰 유지, timedtext만 교체 + URL 변경)를 추가해 테스트로 고정
+- **SM-3 (긴 자막 축소)**: `fitFontSize()`를 순수 함수로 빼면서 단위 테스트 (스모크에서 검증 안 된 항목)
+- **SM-4 (버튼 hover)**: `player-button.js`에서 해시 클래스 대신 자체 스타일
 
 ### Phase 4 — 버그 수정 (각각 별도 커밋 + 테스트)
 - 요소 참조 덮어쓰기(`my_timedtext_element = original_subs`), `HTMLCollection` truthy, `.style` 없는 대입, `injected-style` 누적, `old_inset` 미갱신
+- **SM-2 (두 줄 자막 겹침)**: `computeBottom()`을 "원본 1줄 가정(`sub_bot − baseFont×mult − 10`)"에서 원본 컨테이너의 실측 박스(`getBoundingClientRect`) 기준으로 변경
 - (`:228` 쉼표 연산자는 Phase 1 스모크 수정에서 코드가 삭제되어 제외)
 
 ### Phase 5 — 옵저버 생명주기·성능
-- `PlayerSession { start(), dispose() }`
+- `PlayerSession { start(), dispose() }` — SM-1 수정 후 남는 옛 세션의 옵저버 정리가 여기서 완결됨
 - 우클릭 해제 → `document` capturing 리스너 1개
 - `video_change_observer` 감시 범위 축소
 
@@ -127,3 +131,17 @@ src/
 
 ## 4. 리스크
 Netflix 실제 DOM에서만 확인되는 동작이 있어 자동 테스트만으로 안전을 보장할 수 없다. 단계를 잘게 나누고 매 단계 수동 스모크를 수행한다.
+
+## 5. 스모크에서 발견된 결함 → 작업 배치
+
+2026-09-15 스모크(Phase 1 + `d5a7d2d`) 결과. 표기 규칙은 `SMOKE_CHECKLIST.md` 참고.
+
+| ID | 항목 | 증상 | 추정 원인 | 배치 |
+|---|---|---|---|---|
+| SM-1 | C-1 자동재생 | 다음 에피소드로 넘어가면 번역 자막이 안 나옴. 플레이바 버튼은 유지, 콘솔 에러 없음, on/off 토글해도 안 나옴. 뒤로가기→다른 타이틀은 정상 | 자동재생 시 Netflix가 `.watch-video--player-view`를 재마운트하지 않고 내부의 `.player-timedtext`만 교체하는 것으로 보임. 버튼이 남아 있는 것이 그 증거. `window.observer`는 떨어져 나간 옛 `.player-timedtext`를 계속 감시하므로 자막 이벤트를 못 받는다. (`d5a7d2d`에서 삭제한 옛 세 번째 조건이 이 케이스용이었으나 해시 DOM에 의존해 어차피 동작 안 함) | **Phase 3** `player-watcher.js` — `.player-timedtext` 교체를 두 번째 트리거로 추가. 옛 옵저버 정리는 Phase 5 |
+| SM-2 | B-3 두 줄 자막 | 원문 아랫줄과 번역 윗줄이 겹침 | 번역 컨테이너 `bottom`이 `sub_bot − baseFont×mult − 10`으로 원본이 1줄이라고 가정. 원본이 2줄이면 그만큼 아래로 더 내려야 함 | **Phase 4** — `layout.js` 추출 후 실측 박스 기반으로 수정 |
+| SM-3 | B-4 긴 자막 축소 | 검증 안 됨 (재현할 긴 자막이 없었음) | — | **Phase 3** — `fitFontSize()` 순수 함수 단위 테스트로 대체 |
+| SM-4 | D-2 버튼 hover | 강조는 되나 Netflix 버튼과 다름 (정상 판정) | hover 시 해시 클래스(`ltr-1enhvti`)를 붙이는데 현재 Netflix에 존재하지 않는 클래스 | **Phase 3** `player-button.js` — 자체 스타일로 교체 (이미 셀렉터 원칙에 포함) |
+| SM-5 | G Edge | 미실행 | — | 리스크로 유지. `window.edge` 분기는 검증 수단이 없으므로 리팩토링 시 로직을 바꾸지 않고 옮기기만 한다 |
+
+A-4(콘솔 XHR 에러)와 D-1(컨트롤 바는 x로만 닫힘)은 확장과 무관하거나 정상 동작으로 판정, 조치 없음.
