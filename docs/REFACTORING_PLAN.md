@@ -36,7 +36,8 @@
 | `content.js:993` | `actual_create_buttons;` 호출 아님 (no-op) |
 | `content.js:937` | `my_timedtext_element = original_subs` — 요소 참조를 문자열로 덮어씀 |
 | `content.js:810-812` | `.left`/`.transform`을 `.style` 없이 대입 (no-op) |
-| `content.js:228` | `if(parseInt(a), parseInt(b))` 쉼표 연산자 |
+| `content.js:228` | `if(parseInt(a), parseInt(b))` 쉼표 연산자 (Phase 1 스모크 수정에서 코드 삭제) |
+| `content.js:211-239` | 비디오 전환 감지가 해시 클래스명(`ltr-*`)에 의존 → 현재 Netflix에서 동작 안 함 (Phase 1 스모크 수정으로 해소) |
 | `content.js:625` | `if(HTMLCollection)` 항상 truthy |
 | `background.js:72-138` | truthy 검사로 `0`/`false` 값을 결측으로 오인 → 기본값 리셋. `button_up_down_mode=false`가 SW 재시작 후 되돌아감 |
 | 타입 혼재 | `on_off`가 `1` ↔ `true/false`, `font_multiplier` 문자열 전달 |
@@ -96,10 +97,11 @@
 - falsy 리셋 버그 자연 해소
 
 ### Phase 3 — content.js 모듈 분리
+**셀렉터 원칙 (Phase 1 스모크에서 확인)**: 해시 클래스명(`ltr-*`)은 Netflix 배포마다 바뀌므로 쓰지 않는다. `watch-video`, `watch-video--player-view`, `player-timedtext`, `player-timedtext-text-container`, `aria-label` 같은 안정적인 이름만 `netflix-selectors.js`에 둔다. `weird_classname_mode`와 그 분기(버튼 SVG 2벌, hover 클래스)는 도달 불가이므로 삭제한다. 버튼 hover 강조도 해시 클래스 대신 자체 스타일로 처리한다.
 ```
 src/
   content.js            # 진입점: 세션 생성/파괴
-  netflix-selectors.js  # 클래스명·셀렉터, 일반/Css 모드 매핑
+  netflix-selectors.js  # 안정적인 클래스명·셀렉터만
   dom.js                # waitForElement, injectStyle(id)/removeStyle(id)
   player-watcher.js     # 비디오 전환 감지
   layout.js             # 순수: computeBottom(), computeLeft(), fitFontSize()
@@ -111,7 +113,8 @@ src/
 - 4회 중복 계산 → `layout.js` 함수 1개씩
 
 ### Phase 4 — 버그 수정 (각각 별도 커밋 + 테스트)
-- `:937`, `:228`, `:625`, `injected-style` 누적, `old_inset`
+- 요소 참조 덮어쓰기(`my_timedtext_element = original_subs`), `HTMLCollection` truthy, `.style` 없는 대입, `injected-style` 누적, `old_inset` 미갱신
+- (`:228` 쉼표 연산자는 Phase 1 스모크 수정에서 코드가 삭제되어 제외)
 
 ### Phase 5 — 옵저버 생명주기·성능
 - `PlayerSession { start(), dispose() }`

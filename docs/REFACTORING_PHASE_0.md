@@ -23,7 +23,7 @@
 ## 가짜 플레이어가 재현하는 것
 - `#appMountPoint` 10단계 div 깊이 (content.js `waitForElement` 셀렉터)
 - `.watch-video`, `.watch-video--player-view`, `.player-timedtext` (`inset` 인라인 스타일)
-- 비디오 캔버스 className ` ltr-18tyyic` / ` ltr-1b8gkd7-videoCanvasCss` (앞 공백 포함, 정확 비교)
+- 비디오 로드 시 `.watch-video--player-view`를 `.watch-video` 아래에 재마운트 (2026-09-15 변경; 처음엔 해시 클래스명 캔버스를 흉내 냈으나 실제 Netflix와 맞지 않아 교체)
 - `button[aria-label="Seek Back"]` 2단계 위 버튼 행, 컨트롤 바 파괴/재생성 + class 토글
 - 자막 1컨테이너 / 2컨테이너 (컨테이너는 한 노드씩 추가), `span[style=font-size]`, `bottom: 10%`
 - 번역기 흉내: Chrome(`<font>` 래핑) / Edge(`_msttexthash` 속성)
@@ -61,7 +61,7 @@ npm run lint    → 57 errors (기준선)
 8. `update_text_color` → 컨테이너 color
 9. `update_on_off` false/true → display none/block
 10. 컨트롤 바 재생성 → 버튼 재생성
-11. Css 클래스명 모드 감지 (`weird_classname_mode=1`)
+11. 에피소드 전환 후에도 자막 미러링 유지, 버튼 1개 (2026-09-15 교체; 원래는 Css 클래스명 모드 감지였음)
 
 ## 알려진 한계
 - jsdom은 레이아웃이 없어 `offsetWidth`/`getBoundingClientRect`가 0 → 폰트 축소·위치 계산은 검증 불가 (실행만 됨). 이 로직은 Phase 3에서 순수 함수로 분리한 뒤 단위 테스트한다.

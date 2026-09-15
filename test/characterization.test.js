@@ -97,10 +97,16 @@ describe('content.js on the fake player', () => {
     expect(host.document.getElementById('myTutorialButton')).not.toBeNull();
   });
 
-  it('detects the "Css" classname mode from the video canvas', async () => {
-    host.player.setClassnameMode('css');
+  it('keeps mirroring subtitles after an episode change with a single button', async () => {
     await startPlayback(host);
-    expect(host.window.weird_classname_mode).toBe(1);
-    expect(host.document.getElementById('myTutorialButton')).not.toBeNull();
+    host.player.showSubtitle(['first']);
+    await tick();
+    await startPlayback(host);
+    host.player.showSubtitle(['second']);
+    await tick();
+    expect(host.document.querySelectorAll('.my-timedtext-container').length).toBe(1);
+    expect(host.document.querySelector('.my-timedtext-container').textContent).toBe('second');
+    expect(host.document.querySelectorAll('#myTutorialButton').length).toBe(1);
+    expect(host.window.__errors).toEqual([]);
   });
 });

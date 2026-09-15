@@ -23,9 +23,6 @@
   </head>
   <body>
     <div id="panel">
-      <label>classname mode
-        <select id="mode"><option value="normal">normal</option><option value="css">Css</option></select>
-      </label>
       <button data-act="loadVideo">Load video</button>
       <button data-act="nextVideo">Next episode (autoplay)</button>
       <span>|</span>
@@ -52,7 +49,7 @@
           <div><div><div>
             <div class="watch-video">
               <div class="watch-video--player-view">
-                <div class=" ltr-18tyyic" id="video-canvas"></div>
+                <div id="video-canvas"></div>
                 <div class="player-timedtext" style="inset: 0px 0px 0px 0px;"></div>
                 <div id="controls-root"></div>
               </div>
@@ -66,8 +63,7 @@
 
     <script>
       (function () {
-        const CANVAS_CLASS = { normal: ' ltr-18tyyic', css: ' ltr-1b8gkd7-videoCanvasCss' };
-        const BAR_CLASS = { normal: 'active ltr-fntwn3', css: 'active ltr-gwjau2-playerCss' };
+        const BAR_ACTIVE_CLASS = 'active ltr-fntwn3';
         const SAMPLE = ['Hei, verden.', 'Hvordan har du det?', 'Jeg lærer norsk.', 'Vi ses i morgen!'];
 
         const $ = (s) => document.querySelector(s);
@@ -78,24 +74,31 @@
           el.scrollTop = el.scrollHeight;
         };
 
-        let mode = 'normal';
         let videoCounter = 81000000;
         let cycleTimer = null;
         let translator = 'off';
 
-        function setClassnameMode(m) {
-          mode = m;
-          $('#video-canvas').className = CANVAS_CLASS[m];
-          log(`classname mode: ${m}`);
+        function buildPlayerView() {
+          const view = document.createElement('div');
+          view.className = 'watch-video--player-view';
+          view.innerHTML =
+            '<div id="video-canvas"></div>' +
+            '<div class="player-timedtext" style="inset: 0px 0px 0px 0px;"></div>' +
+            '<div id="controls-root"></div>';
+          return view;
         }
 
+        // Netflix remounts the whole player view under .watch-video on every video change.
         function loadVideo(id = ++videoCounter) {
-          const canvas = $('#video-canvas');
-          canvas.replaceChildren();
+          const old = $('.watch-video--player-view');
+          if (old) old.remove();
           history.replaceState(null, '', `/watch/${id}?trackId=1`);
+          const view = buildPlayerView();
           const v = document.createElement('video');
           v.id = String(id);
-          canvas.appendChild(v);
+          view.querySelector('#video-canvas').appendChild(v);
+          $('.watch-video').appendChild(view);
+          showControls();
           log(`video loaded: ${id}`);
           return id;
         }
@@ -158,7 +161,7 @@
             '</div>';
           $('#controls-root').appendChild(bar);
           // Netflix flips the class after insertion; content.js watches this attribute change.
-          bar.className = 'bottom-bar ' + BAR_CLASS[mode];
+          bar.className = 'bottom-bar ' + BAR_ACTIVE_CLASS;
           log('controls created');
           return bar;
         }
@@ -232,13 +235,12 @@
           const act = e.target.dataset && e.target.dataset.act;
           if (act && actions[act]) actions[act]();
         });
-        $('#mode').addEventListener('change', (e) => setClassnameMode(e.target.value));
         $('#translator').addEventListener('change', (e) => setTranslator(e.target.value));
 
         showControls();
 
         window.fakePlayer = {
-          setClassnameMode, loadVideo, showSubtitle, clearSubtitle, setInset,
+          loadVideo, showSubtitle, clearSubtitle, setInset,
           showControls, hideControls, autoplay, stopAutoplay, setTranslator, SAMPLE,
         };
       })();

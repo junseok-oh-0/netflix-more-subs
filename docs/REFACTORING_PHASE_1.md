@@ -37,7 +37,6 @@
 ## 표시해 둔 버그 (그대로 유지)
 | 위치 | 내용 | 수정 Phase |
 |---|---|---|
-| `content.js` video_change_callback | `(parseInt(a), parseInt(b))` 쉼표 연산자 | 4 |
 | `content.js` initialize_button_observer | `HTMLCollection` truthy 검사 | 4 |
 | `content.js` 리사이즈 분기 | `.left`/`.transform`을 `.style` 없이 대입 | 4 |
 | `content.js` addSubs | `my_timedtext_element = original_subs` 요소 참조 덮어쓰기 | 4 |
@@ -51,10 +50,25 @@ npm test        → 16/16 passed
 npm run build   → content 36.6kb, background 6.1kb, popup 4.8kb
 ```
 
-## 수동 스모크
-`docs/SMOKE_CHECKLIST.md` A~F 항목을 실제 Netflix에서 확인 필요. 특히:
-- jQuery 제거 영향: A(컨테이너 생성), B(자막 clear 시 잔상), 2컨테이너 병합
-- popup.html에서 Stacked 토글·Reset 버튼 동작 (부수 수정)
+## 수동 스모크 결과 (2026-09-15)
+**A-1 실패**: 플레이바에 아이콘이 나타나지 않음. 원인은 Phase 1 변경이 아니라 v1.9 원본의 비디오 전환 감지가 해시 클래스명(` ltr-18tyyic`, ` ltr-1b8gkd7-videoCanvasCss`, ` ltr-op8orf`, ` ltr-1212o1j`)에 의존해 현재 Netflix DOM과 맞지 않기 때문. 해시 클래스명은 Netflix 배포마다 바뀐다.
+
+### 수정 (동작 변화 있음, 의도적)
+`video_change_callback`의 조건 3개를 안정적인 클래스명 기반 조건 1개로 교체:
+```js
+mutation.target.className == 'watch-video' &&
+mutation.addedNodes && mutation.addedNodes.length > 0 &&
+mutation.addedNodes[0].className == 'watch-video--player-view'
+```
+Netflix는 비디오마다 `.watch-video` 아래에 `.watch-video--player-view`를 다시 마운트하므로 이 한 조건으로 최초 재생·에피소드 전환·자동재생을 모두 감지한다.
+
+- 삭제된 것: `current_id` URL 파싱, 쉼표 연산자 버그(`(parseInt(a), parseInt(b))`) — 코드 자체가 사라져 Phase 4 목록에서 제외
+- `window.weird_classname_mode`는 이제 `1`이 될 경로가 없다(해시 클래스명으로만 감지했음). 이를 참조하는 버튼 SVG/hover 분기는 도달 불가 → Phase 3 셀렉터 모듈 작업에서 제거
+- 픽스처: `loadVideo()`가 `.watch-video--player-view` 전체를 제거 후 재마운트하도록 변경 (실제 Netflix 동작 모사). 클래스명 모드 선택 UI 삭제
+- 테스트: "Css 모드 감지" → "에피소드 전환 후에도 자막 미러링 유지 + 버튼 1개" 로 교체
+
+### 재확인 필요
+`docs/SMOKE_CHECKLIST.md` A~F 전체. 이번 수정으로 A-1이 통과하지 않으면 다음 의심 지점은 `wait_for_player_to_finish_loading()`의 구조 셀렉터 `#appMountPoint > div > … > div`이다 (버튼 생성 자체는 `button_observer`가 담당하므로 아이콘은 이 셀렉터와 무관하게 떠야 한다).
 
 ## 다음 단계
 Phase 2 — 설정 파이프라인 단일화 (`docs/REFACTORING_PLAN.md` 참고).

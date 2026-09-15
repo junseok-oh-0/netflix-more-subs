@@ -91,55 +91,19 @@ function wait_for_player_to_finish_loading() {
 }
 
 // Main observer: detects video changes.
+// Netflix remounts .watch-video--player-view under .watch-video for every video, and unlike the
+// hashed ltr-* class names these two survive Netflix UI updates.
 window.video_change_observer_config = { childList: true, subtree: true };
 
 const video_change_callback = function (mutationsList) {
   for (const mutation of mutationsList) {
-    let current_id;
-    try {
-      current_id = location.href.split('/watch/')[1].split('?')[0];
-    } catch {
-      current_id = 0;
-    }
-
     if (
-      mutation.type === 'childList' &&
-      (mutation.target.className === ' ltr-18tyyic' ||
-        mutation.target.className === ' ltr-1b8gkd7-videoCanvasCss' ||
-        mutation.target.className == ' ltr-op8orf' ||
-        mutation.target.className == ' ltr-1212o1j') &&
-      mutation.addedNodes.length
+      mutation.target.className == 'watch-video' &&
+      mutation.addedNodes &&
+      mutation.addedNodes.length > 0 &&
+      mutation.addedNodes[0].className == 'watch-video--player-view'
     ) {
-      if (mutation.target.className === ' ltr-1b8gkd7-videoCanvasCss') {
-        window.weird_classname_mode = 1;
-      }
       prepare_for_dual_subs();
-    }
-    if (
-      mutation.target.parentNode &&
-      (mutation.target.parentNode.className === ' ltr-18tyyic' ||
-        mutation.target.parentNode.className === ' ltr-1b8gkd7-videoCanvasCss' ||
-        mutation.target.className == ' ltr-op8orf' ||
-        mutation.target.className == ' ltr-1212o1j')
-    ) {
-      if (mutation.previousSibling && mutation.addedNodes[0].id != mutation.previousSibling.id) {
-        if (mutation.target.parentNode.className === ' ltr-1b8gkd7-videoCanvasCss') {
-          window.weird_classname_mode = 1;
-        }
-        prepare_for_dual_subs();
-      }
-    }
-    // Observer wasn't being renewed on autoplay without this
-    if (mutation.addedNodes.length == 1 && mutation.previousSibling) {
-      // BUG: comma operator, condition is always the right operand (fixed in Phase 4)
-      if ((parseInt(mutation.addedNodes[0].id), parseInt(mutation.previousSibling.id))) {
-        if (parseInt(current_id) != parseInt(mutation.previousSibling.id)) {
-          if (mutation.target.parentNode.className === ' ltr-1b8gkd7-videoCanvasCss') {
-            window.weird_classname_mode = 1;
-          }
-          prepare_for_dual_subs();
-        }
-      }
     }
   }
 };

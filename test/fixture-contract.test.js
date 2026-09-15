@@ -19,11 +19,14 @@ describe('fake-player fixture', () => {
     }
   });
 
-  it('uses the exact video-canvas className content.js compares against', () => {
-    expect(document.getElementById('video-canvas').className).toBe(' ltr-18tyyic');
-    window.fakePlayer.setClassnameMode('css');
-    expect(document.getElementById('video-canvas').className).toBe(' ltr-1b8gkd7-videoCanvasCss');
-    window.fakePlayer.setClassnameMode('normal');
+  it('remounts .watch-video--player-view directly under .watch-video on video load', () => {
+    const watch = document.querySelector('.watch-video');
+    const before = watch.querySelector('.watch-video--player-view');
+    window.fakePlayer.loadVideo();
+    const after = watch.querySelector('.watch-video--player-view');
+    expect(after).not.toBe(before);
+    expect(after.parentElement).toBe(watch);
+    expect(watch.querySelectorAll('.watch-video--player-view').length).toBe(1);
   });
 
   it('renders a Seek Back button two levels below the button row', () => {
