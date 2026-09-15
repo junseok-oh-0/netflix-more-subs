@@ -114,6 +114,18 @@ describe('content.js on the fake player', () => {
     expect(host.window.__errors).toEqual([]);
   });
 
+  it('survives a resize while the original subtitle has a flat container (no inner div)', async () => {
+    await startPlayback(host);
+    const tt = host.document.querySelector('.player-timedtext');
+    tt.innerHTML =
+      '<div class="player-timedtext-text-container" style="bottom: 10%;"><span style="font-size: 28px;">flat</span></div>';
+    await tick();
+    host.player.setInset(30);
+    await tick();
+    expect(host.window.__errors).toEqual([]);
+    expect(host.document.querySelector('.my-timedtext-container').textContent).toBe('flat');
+  });
+
   // Defects found in the 2026-09-15 live smoke test (REFACTORING_PLAN.md §5)
   it.todo('SM-1: keeps mirroring when autoplay swaps .player-timedtext without remounting the player view');
   it.todo('SM-2: places the translated line fully below a two-line original subtitle');

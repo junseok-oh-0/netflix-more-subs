@@ -237,9 +237,7 @@ function llsubs() {
         }
 
         // Font size changes often, so take the base font after every clear
-        window.baseFont = parseFloat(
-          mutation.target.firstChild.firstChild.firstChild.style.fontSize.replace('px', ''),
-        );
+        window.baseFont = read_base_font(mutation.target);
         window.current_size = window.baseFont * window.current_multiplier + 'px';
         update_style('font_size');
 
@@ -284,17 +282,25 @@ function llsubs() {
   window.translation_tracker.observe(window.my_timedtext_element, window.translation_tracker_config);
 }
 
+// Netflix normally renders container > div > span[style], but transitional frames can be flatter
+// (a bare text node under the container). Never assume the depth.
+function original_text_elements(caption_row) {
+  return caption_row ? Array.from(caption_row.querySelectorAll('[style*="font-size"]')) : [];
+}
+
+function read_base_font(caption_row) {
+  for (const el of original_text_elements(caption_row)) {
+    const px = parseFloat(el.style.fontSize);
+    if (!Number.isNaN(px)) return px;
+  }
+  return window.baseFont;
+}
+
 const addSubs = function (caption_row) {
   // Ensures subs were added rather than removed, probably redundant
   if (caption_row.firstChild != null && window.on_off) {
     const container_count = caption_row.childElementCount;
-    try {
-      window.baseFont = parseFloat(
-        caption_row.firstChild.firstChild.firstChild.style.fontSize.replace('px', ''),
-      );
-    } catch {
-      window.baseFont = parseFloat(caption_row.firstChild.firstChild.style.fontSize.replace('px', ''));
-    }
+    window.baseFont = read_base_font(caption_row);
     if (container_count > 1) {
       // Netflix sometimes uses a separate container per row; force it back into one
       const count = caption_row.childElementCount;
@@ -368,23 +374,18 @@ const addSubs = function (caption_row) {
       const orig = document.getElementsByClassName('player-timedtext')[0].firstChild;
 
       // Deal with overflow. In Edge this triggers translation, hence the notranslate on every span.
+      const text_elements = original_text_elements(orig);
       let temp_size = window.baseFont;
-      while (orig.offsetWidth > orig.parentNode.clientWidth - 150 && temp_size > 8) {
+      while (text_elements.length && orig.offsetWidth > orig.parentNode.clientWidth - 150 && temp_size > 8) {
         temp_size -= 2;
-        orig.firstChild.firstChild.style.fontSize = temp_size + 'px';
-
-        if (window.edge) {
-          orig.firstChild.className += ' notranslate';
+        if (window.edge && orig.firstElementChild) {
+          orig.firstElementChild.className += ' notranslate';
         }
-        for (
-          let i = 0;
-          i < document.getElementsByClassName('player-timedtext')[0].firstChild.firstChild.children.length;
-          i++
-        ) {
+        for (const el of text_elements) {
           if (window.edge) {
-            orig.firstChild.children[i].className += ' notranslate';
+            el.className += ' notranslate';
           }
-          orig.firstChild.children[i].style.fontSize = temp_size + 'px';
+          el.style.fontSize = temp_size + 'px';
         }
       }
     } else {
@@ -439,6 +440,9 @@ function update_style(setting) {
   } catch {
     return;
   }
+  if (!original_lines || original_lines.nodeType !== 1) {
+    return;
+  }
 
   if (setting === 'font_size') {
     lines.style['font-size'] = window.current_size;
@@ -451,15 +455,9 @@ function update_style(setting) {
   } else if (setting === 'text_color') {
     lines.style['color'] = window.text_color;
 
-    document.getElementsByClassName('player-timedtext')[0].firstChild.firstChild.style['color'] =
-      window.originaltext_color;
-
-    for (
-      let i = 0;
-      i < document.getElementsByClassName('player-timedtext')[0].firstChild.firstChild.children.length;
-      i++
-    ) {
-      original_lines.children[i].style['color'] = window.originaltext_color;
+    original_lines.style['color'] = window.originaltext_color;
+    for (const child of original_lines.children) {
+      child.style['color'] = window.originaltext_color;
     }
   } else if (setting === 'opacity') {
     lines.style['opacity'] = window.opacity;
