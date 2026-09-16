@@ -12,11 +12,9 @@ export function removeStyle(id) {
 }
 
 // Netflix blocks the context menu, which the user needs to trigger the browser translator.
+// Stopping the event at the top of the capture phase keeps it from ever reaching Netflix's handlers.
 export function enableRightClick() {
-  for (const el of document.getElementsByTagName('*')) {
-    el.addEventListener('contextmenu', (e) => e.stopPropagation(), true);
-    el.oncontextmenu = null;
-  }
+  window.addEventListener('contextmenu', (e) => e.stopPropagation(), true);
 }
 
 // Netflix normally renders container > div > span[style], but transitional frames can be flatter.

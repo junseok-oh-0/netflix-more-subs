@@ -153,6 +153,25 @@ describe('content script on the fake player', () => {
     expect(mine(host).textContent).toBe('flat');
   });
 
-  // Defects found in the 2026-09-15 live smoke test (REFACTORING_PLAN.md §5)
-  it.todo('SM-2: places the translated line fully below a two-line original subtitle');
+  it('ignores caption nodes that are not inside a .watch-video player (browse-page previews)', async () => {
+    const preview = host.document.createElement('div');
+    preview.innerHTML = '<div class="player-timedtext" style="inset: 0px 0px 0px 0px;"></div>';
+    host.document.body.appendChild(preview);
+    await tick();
+    expect(host.window.__errors).toEqual([]);
+    expect(host.document.querySelectorAll('.my-timedtext-container').length).toBe(0);
+
+    await startPlayback(host);
+    host.player.showSubtitle(['real player']);
+    await tick();
+    expect(mine(host).textContent).toBe('real player');
+  });
+
+  it('lets the context menu through Netflix’s suppression so the translator can be opened', async () => {
+    await startPlayback(host);
+    const video = host.document.querySelector('#video-canvas video');
+    const event = new host.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    video.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
 });

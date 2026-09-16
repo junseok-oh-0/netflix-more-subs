@@ -1,6 +1,6 @@
 # Phase 3 — content.js 모듈 분리 + SM-1
 
-상태: **완료 (스모크 대기)** · 2026-09-15
+상태: **완료** · 2026-09-15 · 스모크 2026-09-16 (아래)
 원칙: 렌더링 로직은 옮기기만 하고 바꾸지 않는다. 예외는 아래 "의도한 동작 변화"에 명시.
 
 ## 구조
@@ -54,5 +54,9 @@ npm run build  → content 14.6kb (Phase 2: 22.9kb)
 ```
 테스트: 특성화 15 · 픽스처 계약 4 · preferences 12 · popup 3 · layout 6 (SM-3 대체)
 
-## 수동 스모크
-`docs/SMOKE_CHECKLIST.md` 전체. 이번엔 **C-1 자동재생이 `y`** 여야 한다. B-3(SM-2)만 `n` 예상.
+## 수동 스모크 결과 (2026-09-16, `9c17a66`)
+- **C-1 자동재생 `y`** — SM-1 해소 확인
+- **B-3 두 줄 자막 `y`** — SM-2가 재현되지 않음. Phase 3의 `firstElementChild`/`styledTextElements` 전환 또는 컨테이너 병합 경로 정리의 부수 효과로 추정. 별도 수정 없이 해소 처리하되 `layout.js`의 1줄 가정 주석은 유지
+- A-3 `n` — 새 에러 1건: `Cannot read properties of null (reading 'insertAdjacentHTML')`. 세션이 `document.querySelector('.watch-video')`로 컨테이너를 찾는데, `.watch-video` 밖(브라우즈 페이지 미리보기 등)에서 `.player-timedtext`가 나타나면 null → **SM-6**으로 등록, Phase 4에서 수정
+- B-4 긴 자막 `?` — 여전히 실물 검증 없음 (단위 테스트로 대체)
+- 나머지 전부 `y`

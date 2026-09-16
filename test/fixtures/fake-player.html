@@ -252,6 +252,9 @@
 
         showControls();
 
+        // Netflix suppresses the context menu inside the player.
+        $('.watch-video').addEventListener('contextmenu', (e) => e.preventDefault());
+
         window.fakePlayer = {
           loadVideo, nextEpisode, showSubtitle, clearSubtitle, setInset,
           showControls, hideControls, autoplay, stopAutoplay, setTranslator, SAMPLE,

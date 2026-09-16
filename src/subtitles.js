@@ -1,12 +1,5 @@
-import { TEXT_CONTAINER, WATCH_VIDEO } from './netflix-selectors.js';
-import {
-  enableRightClick,
-  injectStyle,
-  overflowsParent,
-  readBaseFont,
-  removeStyle,
-  styledTextElements,
-} from './dom.js';
+import { TEXT_CONTAINER } from './netflix-selectors.js';
+import { injectStyle, overflowsParent, readBaseFont, removeStyle, styledTextElements } from './dom.js';
 import {
   SINGLE_LINE_CSS,
   fitFontSize,
@@ -39,7 +32,7 @@ const OBSERVE_TRANSLATION = { attributes: true, childList: true, subtree: true }
 
 // One session per Netflix caption node (.player-timedtext). `prefs` is shared with the caller and
 // mutated there; applyPreferenceChange(key) tells the session to react to the new value.
-export function createSubtitleSession(timedtext, prefs) {
+export function createSubtitleSession(timedtext, watchVideo, prefs) {
   const stacked = () => prefs.button_up_down_mode;
   const s = {
     container: null,
@@ -51,13 +44,10 @@ export function createSubtitleSession(timedtext, prefs) {
     tracker: null,
   };
 
-  enableRightClick();
-
   // Should really happen on video exit; the old text lingers briefly until the next video starts.
   document.querySelectorAll('.' + CONTAINER_CLASS).forEach((el) => el.remove());
   removeStyle(STYLE_ID);
 
-  const watchVideo = document.querySelector(WATCH_VIDEO);
   watchVideo.insertAdjacentHTML(
     'beforeend',
     `<div class="${CONTAINER_CLASS}" style="${stacked() ? CONTAINER_STACKED_STYLE : CONTAINER_SIDE_STYLE}"><span id="my_subs_innertext"></span></div>`,
