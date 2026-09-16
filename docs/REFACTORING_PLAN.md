@@ -118,9 +118,10 @@ src/
 
 ### Phase 4 + 5 — 남은 버그 · 성능 (한 커밋)
 완료: `docs/REFACTORING_PHASE_4.md`
+- SM-2 (두 줄 겹침) 수정 — 실측 박스 기반 배치, `placeContainer()` 단일화
 - SM-6 (`.watch-video` 밖 캡션 노드로 세션 생성 시 null) 수정
 - 우클릭 활성화 → `window` capture 리스너 1개
-- SM-2는 Phase 3 이후 재현되지 않아 수정 없이 종료. `s.oldInset`·`watchPlayer` 범위는 의도적으로 유지 (사유는 Phase 4 문서)
+- `s.oldInset`·`watchPlayer` 범위는 의도적으로 유지 (사유는 Phase 4 문서)
 
 ### Phase 6 — 선택
 - JSDoc → TypeScript
@@ -136,7 +137,7 @@ Netflix 실제 DOM에서만 확인되는 동작이 있어 자동 테스트만으
 | ID | 항목 | 증상 | 추정 원인 | 배치 |
 |---|---|---|---|---|
 | SM-1 | C-1 자동재생 | 다음 에피소드로 넘어가면 번역 자막이 안 나옴. 플레이바 버튼은 유지, 콘솔 에러 없음, on/off 토글해도 안 나옴. 뒤로가기→다른 타이틀은 정상 | 자동재생 시 Netflix가 `.watch-video--player-view`를 재마운트하지 않고 내부의 `.player-timedtext`만 교체하는 것으로 보임. 버튼이 남아 있는 것이 그 증거. `window.observer`는 떨어져 나간 옛 `.player-timedtext`를 계속 감시하므로 자막 이벤트를 못 받는다. (`d5a7d2d`에서 삭제한 옛 세 번째 조건이 이 케이스용이었으나 해시 DOM에 의존해 어차피 동작 안 함) | **해소 (Phase 3)** — `player-watcher.js`가 `.player-timedtext` 출현을 기준으로 감지, 세션 `dispose()`로 옛 옵저버 정리. 테스트로 고정 |
-| SM-2 | B-3 두 줄 자막 | 원문 아랫줄과 번역 윗줄이 겹침 | 번역 컨테이너 `bottom`이 `sub_bot − baseFont×mult − 10`으로 원본이 1줄이라고 가정. 원본이 2줄이면 그만큼 아래로 더 내려야 함 | **해소** — Phase 3 이후 스모크에서 재현 안 됨 (2026-09-16). 재발 시 `layout.js` `stackedTranslatedBottomPx`를 실측 박스 기준으로 |
+| SM-2 | B-3 두 줄 자막 | 원문 아랫줄과 번역 윗줄이 겹침 | 번역 컨테이너 `bottom`이 `sub_bot − baseFont×mult − 10`으로 원본이 1줄이라고 가정. 원본이 2줄이면 그만큼 아래로 더 내려야 함 | **해소 (Phase 4)** — 원본 실측 박스 아래에 `top`으로 배치 (`layout.js` `topBelow`). 스모크 `y` 기록은 오기였고 실제로는 Phase 4에서 수정 |
 | SM-3 | B-4 긴 자막 축소 | 검증 안 됨 (재현할 긴 자막이 없었음) | — | **해소 (Phase 3)** — `layout.js` `fitFontSize()` 단위 테스트 3개 |
 | SM-4 | D-2 버튼 hover | 강조는 되나 Netflix 버튼과 다름 (정상 판정) | hover 시 해시 클래스(`ltr-1enhvti`)를 붙이는데 현재 Netflix에 존재하지 않는 클래스 | **해소** — Phase 2에서 버튼 자체를 제거 (`82912c7`) |
 | SM-5 | G Edge | 미실행 | — | 리스크로 유지. `IS_EDGE` 분기는 검증 수단이 없으므로 리팩토링 시 로직을 바꾸지 않고 옮기기만 한다 |

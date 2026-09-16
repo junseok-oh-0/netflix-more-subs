@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitFontSize, originalBottomPx, sideBySideLeftPx, stackedTranslatedBottomPx } from '../src/layout.js';
+import { bottomAlignedTo, fitFontSize, sideBySideLeftPx, topBelow } from '../src/layout.js';
 
 describe('fitFontSize', () => {
   it('leaves the size alone when nothing overflows', () => {
@@ -41,12 +41,12 @@ describe('fitFontSize', () => {
 });
 
 describe('positions', () => {
-  it('originalBottomPx adds the inset top to the percentage of the row height', () => {
-    expect(originalBottomPx('12px 0px 0px 0px', '10%', 500)).toBe(62);
+  it('topBelow puts our top edge a gap under the original, in player coordinates', () => {
+    expect(topBelow({ bottom: 480 }, { top: 20 }, 8)).toBe(468);
   });
 
-  it('stackedTranslatedBottomPx places ours one scaled line plus 10px below the original', () => {
-    expect(stackedTranslatedBottomPx(100, 32, 1.5)).toBe(100 - 48 - 10);
+  it('bottomAlignedTo lines our bottom edge up with the original', () => {
+    expect(bottomAlignedTo({ bottom: 480 }, { bottom: 560 })).toBe(80);
   });
 
   it('sideBySideLeftPx starts 10px after the original, which sits at 2.5% of the row', () => {

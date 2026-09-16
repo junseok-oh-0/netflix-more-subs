@@ -1,15 +1,10 @@
 import { TEXT_CONTAINER } from './netflix-selectors.js';
 import { injectStyle, overflowsParent, readBaseFont, removeStyle, styledTextElements } from './dom.js';
-import {
-  SINGLE_LINE_CSS,
-  fitFontSize,
-  originalBottomPx,
-  sideBySideLeftPx,
-  stackedTranslatedBottomPx,
-} from './layout.js';
+import { SINGLE_LINE_CSS, bottomAlignedTo, fitFontSize, sideBySideLeftPx, topBelow } from './layout.js';
 
 const CONTAINER_CLASS = 'my-timedtext-container';
 const STYLE_ID = 'dsubs-single-line';
+const STACK_GAP_PX = 8;
 // UA sniffing is not foolproof but good enough to pick the translator workaround.
 const IS_EDGE = navigator.userAgent.includes('Edg/');
 
@@ -133,15 +128,8 @@ export function createSubtitleSession(timedtext, watchVideo, prefs) {
       }
       s.currentSize = s.baseFont * prefs.font_multiplier + 'px';
 
-      const bottom = originalBottomPx(timedtext.style.inset, orig.style.bottom, rowRect().height);
-      if (stacked()) {
-        s.container.style.bottom =
-          stackedTranslatedBottomPx(bottom, s.baseFont, prefs.font_multiplier) + 'px';
-        shrinkOriginalToFit(orig);
-      } else {
-        s.container.style.bottom = bottom + 'px';
-        s.container.style.left = sideBySideLeftPx(rowRect(), orig.getBoundingClientRect().width) + 'px';
-      }
+      if (stacked()) shrinkOriginalToFit(orig);
+      placeContainer(orig);
 
       updateStyle('text_color');
       updateStyle('opacity');
@@ -160,9 +148,21 @@ export function createSubtitleSession(timedtext, watchVideo, prefs) {
     s.baseFont = readBaseFont(timedtext, s.baseFont);
     s.currentSize = s.baseFont * prefs.font_multiplier + 'px';
     updateStyle('font_size');
+    if (original()) placeContainer(original());
+  }
 
-    if (!stacked()) {
-      s.container.style.left = sideBySideLeftPx(rowRect(), original().getBoundingClientRect().width) + 'px';
+  // Stacked: hang from the original's measured bottom edge, so its line count never matters.
+  // Side-by-side: share the original's bottom edge and start 10px to its right.
+  function placeContainer(orig) {
+    const origRect = orig.getBoundingClientRect();
+    const playerRect = watchVideo.getBoundingClientRect();
+    if (stacked()) {
+      s.container.style.bottom = '';
+      s.container.style.top = topBelow(origRect, playerRect, STACK_GAP_PX) + 'px';
+    } else {
+      s.container.style.top = '';
+      s.container.style.bottom = bottomAlignedTo(origRect, playerRect) + 'px';
+      s.container.style.left = sideBySideLeftPx(rowRect(), origRect.width) + 'px';
     }
   }
 
@@ -242,10 +242,8 @@ export function createSubtitleSession(timedtext, watchVideo, prefs) {
     removeStyle(STYLE_ID);
     try {
       const orig = original();
-      s.container.style.left = sideBySideLeftPx(rowRect(), orig.getBoundingClientRect().width) + 'px';
       orig.setAttribute('style', ORIGINAL_SIDE_STYLE);
-      s.container.style.bottom =
-        originalBottomPx(timedtext.style.inset, orig.style.bottom, rowRect().height) + 'px';
+      placeContainer(orig);
     } catch {
       // no subs on screen
     }
@@ -260,8 +258,7 @@ export function createSubtitleSession(timedtext, watchVideo, prefs) {
     try {
       const orig = original();
       orig.setAttribute('style', ORIGINAL_STACKED_STYLE);
-      const bottom = originalBottomPx(timedtext.style.inset, orig.style.bottom, rowRect().height);
-      s.container.style.bottom = stackedTranslatedBottomPx(bottom, s.baseFont, prefs.font_multiplier) + 'px';
+      placeContainer(orig);
     } catch {
       // no subs on screen
     }

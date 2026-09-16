@@ -6,16 +6,14 @@ export const SINGLE_LINE_CSS =
   '.player-timedtext br:after{content: " ";}' +
   '.my-timedtext-container br:after{content: " ";}';
 
-// Bottom edge (px) of the original subtitle within the player.
-// Netflix writes bottom as a percentage; the leading "." turns "10%" into 0.1.
-// KNOWN: "5%" becomes 0.5, and a two-line original is not accounted for (SM-2, Phase 4).
-export function originalBottomPx(insetStyle, bottomStyle, rowHeight) {
-  const insetTop = parseFloat(String(insetStyle).split(' ')[0]);
-  return insetTop + parseFloat('.' + bottomStyle) * rowHeight;
+// Our container is absolutely positioned inside the player; these convert page rects into its
+// top/bottom offsets. Measuring the original's box means its line count never matters.
+export function topBelow(originalRect, playerRect, gap) {
+  return originalRect.bottom - playerRect.top + gap;
 }
 
-export function stackedTranslatedBottomPx(originalBottom, baseFont, multiplier) {
-  return originalBottom - baseFont * multiplier - 10;
+export function bottomAlignedTo(originalRect, playerRect) {
+  return playerRect.bottom - originalRect.bottom;
 }
 
 // Side-by-side mode: original sits at left 2.5% of the row; ours starts 10px after it ends.

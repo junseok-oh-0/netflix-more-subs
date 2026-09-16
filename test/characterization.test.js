@@ -153,6 +153,42 @@ describe('content script on the fake player', () => {
     expect(mine(host).textContent).toBe('flat');
   });
 
+  // jsdom has no layout, so fake the two rects the placement depends on.
+  function fakeRects(host, { original, watchVideo }) {
+    const proto = host.window.HTMLElement.prototype;
+    const zero = { x: 0, y: 0, top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0 };
+    proto.getBoundingClientRect = function () {
+      if (this.matches('.player-timedtext-text-container')) return { ...zero, ...original };
+      if (this.matches('.watch-video')) return { ...zero, ...watchVideo };
+      return zero;
+    };
+  }
+
+  it('SM-2: stacked mode hangs the translation from the bottom edge of the original, whatever its height', async () => {
+    await startPlayback(host);
+    fakeRects(host, {
+      original: { top: 400, bottom: 480, height: 80, width: 300, x: 330 },
+      watchVideo: { top: 20, bottom: 560, height: 540, width: 960 },
+    });
+    host.player.showSubtitle(['line one', 'line two']);
+    await tick();
+    expect(mine(host).style.top).toBe('468px'); // 480 - 20 + 8px gap
+    expect(mine(host).style.bottom).toBe('');
+  });
+
+  it('side-by-side mode aligns the translation to the bottom edge of the original', async () => {
+    host = await loadExtension({ preferences: { button_up_down_mode: false } });
+    await startPlayback(host);
+    fakeRects(host, {
+      original: { top: 440, bottom: 480, height: 40, width: 300, x: 330 },
+      watchVideo: { top: 20, bottom: 560, height: 540, width: 960 },
+    });
+    host.player.showSubtitle(['one line']);
+    await tick();
+    expect(mine(host).style.bottom).toBe('80px'); // 560 - 480
+    expect(mine(host).style.top).toBe('');
+  });
+
   it('ignores caption nodes that are not inside a .watch-video player (browse-page previews)', async () => {
     const preview = host.document.createElement('div');
     preview.innerHTML = '<div class="player-timedtext" style="inset: 0px 0px 0px 0px;"></div>';
