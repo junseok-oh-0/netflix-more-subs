@@ -19,7 +19,7 @@ async function loadPopup(stored) {
     },
     tabs: { create: vi.fn() },
   };
-  window.eval(bundleEntry('popup.js'));
+  window.eval(bundleEntry('popup.ts'));
   await tick();
   return { window, document: window.document, store, chrome: window.chrome };
 }

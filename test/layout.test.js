@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bottomAlignedTo, fitFontSize, sideBySideLeftPx, topBelow } from '../src/layout.js';
+import { bottomAlignedTo, fitFontSize, sideBySideLeftPx, topBelow } from '../src/layout.ts';
 
 describe('fitFontSize', () => {
   it('leaves the size alone when nothing overflows', () => {

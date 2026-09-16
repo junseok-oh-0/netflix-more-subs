@@ -1,6 +1,7 @@
-import { TEXT_CONTAINER } from './netflix-selectors.js';
-import { injectStyle, overflowsParent, readBaseFont, removeStyle, styledTextElements } from './dom.js';
-import { SINGLE_LINE_CSS, bottomAlignedTo, fitFontSize, sideBySideLeftPx, topBelow } from './layout.js';
+import { TEXT_CONTAINER } from './netflix-selectors';
+import { injectStyle, overflowsParent, readBaseFont, removeStyle, styledTextElements } from './dom';
+import { SINGLE_LINE_CSS, bottomAlignedTo, fitFontSize, sideBySideLeftPx, topBelow } from './layout';
+import type { PreferenceKey, Preferences } from './preferences';
 
 const CONTAINER_CLASS = 'my-timedtext-container';
 const STYLE_ID = 'dsubs-single-line';
@@ -22,22 +23,44 @@ const ORIGINAL_STACKED_STYLE =
 const ORIGINAL_SIDE_STYLE =
   'display: block; white-space: pre-wrap; text-align: center; position: absolute; left: 2.5%; bottom: 18%;';
 
-const OBSERVE_ORIGINAL = { attributes: true, childList: true, subtree: true, attributeFilter: ['style'] };
-const OBSERVE_TRANSLATION = { attributes: true, childList: true, subtree: true };
+const OBSERVE_ORIGINAL: MutationObserverInit = {
+  attributes: true,
+  childList: true,
+  subtree: true,
+  attributeFilter: ['style'],
+};
+const OBSERVE_TRANSLATION: MutationObserverInit = { attributes: true, childList: true, subtree: true };
+
+type StyleSetting = 'font_size' | 'text_color' | 'opacity';
+
+export interface SubtitleSession {
+  readonly timedtext: HTMLElement;
+  applyPreferenceChange(key: PreferenceKey): void;
+  dispose(): void;
+}
+
+interface SessionState {
+  container: HTMLElement;
+  baseFont: number;
+  currentSize: string;
+  lastSubs: string;
+  oldInset: string;
+  observer: MutationObserver;
+  tracker: MutationObserver;
+}
+
+function colorAll(elements: Iterable<Element>, color: string): void {
+  for (const el of elements) if (el instanceof HTMLElement) el.style.color = color;
+}
 
 // One session per Netflix caption node (.player-timedtext). `prefs` is shared with the caller and
 // mutated there; applyPreferenceChange(key) tells the session to react to the new value.
-export function createSubtitleSession(timedtext, watchVideo, prefs) {
-  const stacked = () => prefs.button_up_down_mode;
-  const s = {
-    container: null,
-    baseFont: NaN,
-    currentSize: '',
-    lastSubs: '',
-    oldInset: timedtext.style.inset,
-    observer: null,
-    tracker: null,
-  };
+export function createSubtitleSession(
+  timedtext: HTMLElement,
+  watchVideo: HTMLElement,
+  prefs: Preferences,
+): SubtitleSession {
+  const stacked = (): boolean => prefs.button_up_down_mode;
 
   // Should really happen on video exit; the old text lingers briefly until the next video starts.
   document.querySelectorAll('.' + CONTAINER_CLASS).forEach((el) => el.remove());
@@ -47,24 +70,32 @@ export function createSubtitleSession(timedtext, watchVideo, prefs) {
     'beforeend',
     `<div class="${CONTAINER_CLASS}" style="${stacked() ? CONTAINER_STACKED_STYLE : CONTAINER_SIDE_STYLE}"><span id="my_subs_innertext"></span></div>`,
   );
-  s.container = watchVideo.lastElementChild;
-  s.container.setAttribute('translate', 'yes');
+  const container = watchVideo.lastElementChild as HTMLElement;
+  container.setAttribute('translate', 'yes');
   if (stacked() && prefs.on_off) injectStyle(STYLE_ID, SINGLE_LINE_CSS);
 
-  s.tracker = new MutationObserver(onTranslation);
+  const s: SessionState = {
+    container,
+    baseFont: NaN,
+    currentSize: '',
+    lastSubs: '',
+    oldInset: timedtext.style.inset,
+    observer: new MutationObserver(onOriginalMutation),
+    tracker: new MutationObserver(onTranslation),
+  };
   s.tracker.observe(s.container, OBSERVE_TRANSLATION);
-  s.observer = new MutationObserver(onOriginalMutation);
   s.observer.observe(timedtext, OBSERVE_ORIGINAL);
 
-  function original() {
-    return timedtext.firstElementChild;
+  function original(): HTMLElement | null {
+    const el = timedtext.firstElementChild;
+    return el instanceof HTMLElement ? el : null;
   }
 
-  function rowRect() {
+  function rowRect(): DOMRect {
     return timedtext.getBoundingClientRect();
   }
 
-  function onOriginalMutation(mutations) {
+  function onOriginalMutation(mutations: MutationRecord[]): void {
     for (const m of mutations) {
       if (m.type === 'childList' && m.target === timedtext) {
         if (m.addedNodes.length === 1) {
@@ -89,27 +120,31 @@ export function createSubtitleSession(timedtext, watchVideo, prefs) {
 
   // Tracks when the browser translator rewrites our container, to deal with text going offscreen.
   // Chrome wraps the text in <font>; Edge stamps _msttexthash on the container.
-  function onTranslation(mutations) {
+  function onTranslation(mutations: MutationRecord[]): void {
     for (const m of mutations) {
       if (m.target !== s.container) continue;
       const edge = m.type === 'attributes' && m.attributeName === '_msttexthash';
-      const chrome = m.addedNodes.length == 1 && m.addedNodes[0].nodeName === 'FONT';
+      const chrome = m.addedNodes.length === 1 && m.addedNodes[0]?.nodeName === 'FONT';
       if (edge || chrome) shrinkContainerToFit();
     }
   }
 
   // Netflix sometimes uses a separate container per row; force it back into one.
-  function mergeContainers() {
-    const containers = Array.from(timedtext.children);
+  function mergeContainers(): void {
+    const containers = Array.from(timedtext.children).filter(
+      (c): c is HTMLElement => c instanceof HTMLElement,
+    );
     const first = containers[0];
+    if (!first) return;
     const firstText = styledTextElements(first)[0];
     const style = firstText ? firstText.getAttribute('style') : null;
-    first.firstChild.innerText = containers.map((c) => c.firstChild.innerText).join('\n');
+    const rows = containers.map((c) => (c.firstChild instanceof HTMLElement ? c.firstChild.innerText : ''));
+    if (first.firstChild instanceof HTMLElement) first.firstChild.innerText = rows.join('\n');
     containers.slice(1).forEach((c) => c.remove());
     if (style != null && first.firstElementChild) first.firstElementChild.setAttribute('style', style);
   }
 
-  function addSubs() {
+  function addSubs(): void {
     const orig = original();
     // Ensures subs were added rather than removed, probably redundant
     if (orig != null && prefs.on_off) {
@@ -139,7 +174,7 @@ export function createSubtitleSession(timedtext, watchVideo, prefs) {
   }
 
   // Netflix constantly refreshes the text, so styles have to be reapplied after a resize.
-  function onResize() {
+  function onResize(): void {
     // Spoofs the Edge translator into skipping, since the translate attribute doesn't work there
     for (const child of timedtext.children) child.setAttribute('_istranslated', '1');
     if (timedtext.childElementCount > 1) mergeContainers();
@@ -148,12 +183,13 @@ export function createSubtitleSession(timedtext, watchVideo, prefs) {
     s.baseFont = readBaseFont(timedtext, s.baseFont);
     s.currentSize = s.baseFont * prefs.font_multiplier + 'px';
     updateStyle('font_size');
-    if (original()) placeContainer(original());
+    const orig = original();
+    if (orig) placeContainer(orig);
   }
 
   // Stacked: hang from the original's measured bottom edge, so its line count never matters.
   // Side-by-side: share the original's bottom edge and start 10px to its right.
-  function placeContainer(orig) {
+  function placeContainer(orig: HTMLElement): void {
     const origRect = orig.getBoundingClientRect();
     const playerRect = watchVideo.getBoundingClientRect();
     if (stacked()) {
@@ -167,7 +203,7 @@ export function createSubtitleSession(timedtext, watchVideo, prefs) {
   }
 
   // In Edge shrinking triggers translation, hence the notranslate on every span.
-  function shrinkOriginalToFit(orig) {
+  function shrinkOriginalToFit(orig: HTMLElement): void {
     const targets = styledTextElements(orig);
     if (!targets.length) return;
     fitFontSize(
@@ -183,7 +219,7 @@ export function createSubtitleSession(timedtext, watchVideo, prefs) {
     );
   }
 
-  function shrinkContainerToFit() {
+  function shrinkContainerToFit(): void {
     const lines = s.container;
     fitFontSize(
       parseFloat(lines.style.fontSize),
@@ -192,10 +228,10 @@ export function createSubtitleSession(timedtext, watchVideo, prefs) {
     );
   }
 
-  function updateStyle(setting) {
+  function updateStyle(setting: StyleSetting): void {
     const lines = s.container;
-    const originalLines = original() && original().firstElementChild;
-    if (!originalLines) return;
+    const originalLines = original()?.firstElementChild;
+    if (!(originalLines instanceof HTMLElement)) return;
 
     if (setting === 'font_size') {
       lines.style.fontSize = s.currentSize;
@@ -203,71 +239,63 @@ export function createSubtitleSession(timedtext, watchVideo, prefs) {
     } else if (setting === 'text_color') {
       lines.style.color = prefs.text_color;
       originalLines.style.color = prefs.originaltext_color;
-      for (const child of originalLines.children) child.style.color = prefs.originaltext_color;
+      colorAll(originalLines.children, prefs.originaltext_color);
     } else if (setting === 'opacity') {
-      lines.style.opacity = prefs.opacity;
-      originalLines.style.opacity = prefs.originaltext_opacity;
+      lines.style.opacity = String(prefs.opacity);
+      originalLines.style.opacity = String(prefs.originaltext_opacity);
     }
   }
 
-  function turnOff() {
+  function turnOff(): void {
     removeStyle(STYLE_ID);
     s.container.style.display = 'none';
-    try {
-      timedtext.querySelectorAll('*').forEach((e) => (e.style.color = '#FFFFFF'));
-      const c = timedtext.querySelector(TEXT_CONTAINER);
+    colorAll(timedtext.querySelectorAll('*'), '#FFFFFF');
+    const c = timedtext.querySelector<HTMLElement>(TEXT_CONTAINER);
+    if (c) {
       c.style.left = '50%';
       c.style.transform = 'translate(-50%)';
-      c.style['-webkit-transform'] = 'translateX(-50%)';
-    } catch {
-      // no subs on screen
+      c.style.setProperty('-webkit-transform', 'translateX(-50%)');
     }
   }
 
-  function turnOn() {
+  function turnOn(): void {
     if (stacked()) injectStyle(STYLE_ID, SINGLE_LINE_CSS);
     s.container.style.display = 'block';
-    try {
-      for (const child of original().children) child.style.color = prefs.originaltext_color;
-    } catch {
-      // no subs on screen
-    }
+    const orig = original();
+    if (orig) colorAll(orig.children, prefs.originaltext_color);
   }
 
-  function exitStacked() {
+  function exitStacked(): void {
     s.container.style.left = '';
     s.container.style.transform = '';
-    s.container.style['-webkit-transform'] = '';
+    s.container.style.removeProperty('-webkit-transform');
     s.container.style.whiteSpace = 'pre-wrap';
     removeStyle(STYLE_ID);
-    try {
-      const orig = original();
+    const orig = original();
+    if (orig) {
       orig.setAttribute('style', ORIGINAL_SIDE_STYLE);
       placeContainer(orig);
-    } catch {
-      // no subs on screen
     }
   }
 
-  function enterStacked() {
+  function enterStacked(): void {
     injectStyle(STYLE_ID, SINGLE_LINE_CSS);
     s.container.style.left = '50%';
     s.container.style.transform = 'translate(-50%)';
-    s.container.style['-webkit-transform'] = 'translateX(-50%)';
+    s.container.style.setProperty('-webkit-transform', 'translateX(-50%)');
     s.container.style.whiteSpace = 'nowrap';
-    try {
-      const orig = original();
+    const orig = original();
+    if (orig) {
       orig.setAttribute('style', ORIGINAL_STACKED_STYLE);
       placeContainer(orig);
-    } catch {
-      // no subs on screen
     }
   }
 
-  function applyPreferenceChange(key) {
+  function applyPreferenceChange(key: PreferenceKey): void {
     switch (key) {
       case 'on_off':
-        prefs.on_off ? turnOn() : turnOff();
+        if (prefs.on_off) turnOn();
+        else turnOff();
         break;
       case 'font_multiplier':
         s.currentSize = s.baseFont * prefs.font_multiplier + 'px';
@@ -282,12 +310,13 @@ export function createSubtitleSession(timedtext, watchVideo, prefs) {
         updateStyle('opacity');
         break;
       case 'button_up_down_mode':
-        prefs.button_up_down_mode ? enterStacked() : exitStacked();
+        if (prefs.button_up_down_mode) enterStacked();
+        else exitStacked();
         break;
     }
   }
 
-  function dispose() {
+  function dispose(): void {
     s.observer.disconnect();
     s.tracker.disconnect();
     s.container.remove();

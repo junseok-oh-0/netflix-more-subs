@@ -57,11 +57,12 @@ npm install
 npm run build        # bundles src/ into dist/ (load dist/ as an unpacked extension)
 npm test             # vitest: unit tests + the content script running against a fake Netflix player
 npm run lint         # eslint
+npm run typecheck    # tsc --noEmit
 npm run build:dev    # same as build, plus localhost matches for the fixture page
 npm run fixture      # serves test/fixtures/fake-player.html at http://localhost:8787/
 ```
 
-Sources live in `src/`; `dist/` is generated. The refactoring plan, per-phase logs, and the manual smoke checklist are in `docs/`.
+Sources are TypeScript in `src/`; `dist/` is generated. The refactoring plan, per-phase logs, and the manual smoke checklist are in `docs/`.
 
 ## Past Updates:
 

@@ -9,7 +9,7 @@
 |---|---|---|
 | 1 | 설정 UI 일원화 | **`popup.html`(확장 프로그램 기본 액션 팝업)을 남기고 `settings_box.html`(인페이지 패널)을 삭제**한다. 설정 로직은 한 벌만 존재해야 한다. **플레이바 버튼은 제거** (2026-09-15 확정, Phase 2에서 적용). |
 | 2 | 번들러 도입 | **esbuild** 도입. `src/` → `dist/` 빌드, `dist/`를 언팩 확장으로 로드한다. |
-| 3 | TypeScript | Phase 3(모듈 분리) 완료 이후로 미룬다. 정리 작업과 타입 작업을 섞지 않는다. |
+| 3 | TypeScript | Phase 3(모듈 분리) 완료 이후로 미룬다. 정리 작업과 타입 작업을 섞지 않는다. → Phase 6에서 적용 완료 (2026-09-16) |
 
 ## 1. 현황 진단 요약
 
@@ -126,7 +126,8 @@ src/
 ### Phase 6 — CI · (선택) TypeScript
 - GitHub Actions `.github/workflows/ci.yml`: push/PR마다 lint · prettier · vitest · build, `dist/`를 아티팩트로 업로드 — **완료 2026-09-16**
 - README에 개발 절차(빌드·테스트·언팩 로드) 추가 — **완료**
-- TypeScript 전환: 결정 3에 따라 Phase 3 이후로 미뤄 둔 항목. 모듈 경계가 잡힌 지금이 적기이나, 파일 전체를 건드리는 작업이므로 별도 결정 후 진행 (권장 순서: `tsconfig` + `allowJs` + `checkJs`로 타입 검사만 먼저 켜고, `preferences.js`·`layout.js` 같은 순수 모듈부터 `.ts`로)
+- TypeScript 전환 — **완료 2026-09-16** (`src/*.ts`, strict, `npm run typecheck`가 CI에 포함). 상세: `docs/REFACTORING_PHASE_6.md`
+- **리팩토링 계획(Phase 0~6) 종료.** 이후는 Phase 7 (스모크 자동화)
 
 ### Phase 7 — 스모크 테스트 자동화 (리팩토링 완료 후)
 `docs/SMOKE_CHECKLIST.md`의 수동 항목을 실제 Netflix에서 자동 실행한다. 핵심 장애물은 브라우저 번역기가 Chrome **네이티브 UI**(우클릭 메뉴/주소창 아이콘)라 페이지 JS로 켤 수 없다는 점 하나이며, Chrome 설정 → 언어에서 자막 언어를 **"항상 번역"**으로 지정해 두면 사라진다.

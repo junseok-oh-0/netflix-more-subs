@@ -81,7 +81,7 @@ export async function loadExtension({ preferences = {} } = {}) {
   const chrome = installChromeStub(window, { preferences });
   window.__errors = [];
   window.addEventListener('error', (e) => window.__errors.push(e.error ?? e.message));
-  window.eval(bundleEntry('content.js'));
+  window.eval(bundleEntry('content.ts'));
   await tick();
   return { dom, window, document: window.document, chrome, player: window.fakePlayer };
 }

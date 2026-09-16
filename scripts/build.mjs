@@ -11,7 +11,7 @@ rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist);
 
 await build({
-  entryPoints: ['content.js', 'background.js', 'popup.js'].map((f) => resolve(src, f)),
+  entryPoints: ['content.ts', 'background.ts', 'popup.ts'].map((f) => resolve(src, f)),
   outdir: dist,
   bundle: true,
   format: 'iife',

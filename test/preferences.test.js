@@ -6,7 +6,7 @@ import {
   onPreferencesChanged,
   savePreference,
   savePreferences,
-} from '../src/preferences.js';
+} from '../src/preferences.ts';
 
 describe('normalizePreferences', () => {
   it('fills every key with defaults when storage is empty', () => {
