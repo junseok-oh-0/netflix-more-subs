@@ -50,6 +50,19 @@ Incase you didn't know, you can browse for shows by subtitle/audio language here
 
 Google Translate is not perfect! The accuracy is fine for me, but I'm someone that already knows enough to notice the mistakes. The benefit of using the other dual subs extensions is that you are guaranteed to get sentences that make sense even if they aren't direct translations.
 
+## Development
+
+```
+npm install
+npm run build        # bundles src/ into dist/ (load dist/ as an unpacked extension)
+npm test             # vitest: unit tests + the content script running against a fake Netflix player
+npm run lint         # eslint
+npm run build:dev    # same as build, plus localhost matches for the fixture page
+npm run fixture      # serves test/fixtures/fake-player.html at http://localhost:8787/
+```
+
+Sources live in `src/`; `dist/` is generated. The refactoring plan, per-phase logs, and the manual smoke checklist are in `docs/`.
+
 ## Past Updates:
 
 v1.2: Extension name change, Removed requirement of User History Permission

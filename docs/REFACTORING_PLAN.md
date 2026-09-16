@@ -123,9 +123,25 @@ src/
 - 우클릭 활성화 → `window` capture 리스너 1개
 - `s.oldInset`·`watchPlayer` 범위는 의도적으로 유지 (사유는 Phase 4 문서)
 
-### Phase 6 — 선택
-- JSDoc → TypeScript
-- GitHub Actions: lint + vitest (+ Playwright 픽스처 E2E)
+### Phase 6 — CI · (선택) TypeScript
+- GitHub Actions `.github/workflows/ci.yml`: push/PR마다 lint · prettier · vitest · build, `dist/`를 아티팩트로 업로드 — **완료 2026-09-16**
+- README에 개발 절차(빌드·테스트·언팩 로드) 추가 — **완료**
+- TypeScript 전환: 결정 3에 따라 Phase 3 이후로 미뤄 둔 항목. 모듈 경계가 잡힌 지금이 적기이나, 파일 전체를 건드리는 작업이므로 별도 결정 후 진행 (권장 순서: `tsconfig` + `allowJs` + `checkJs`로 타입 검사만 먼저 켜고, `preferences.js`·`layout.js` 같은 순수 모듈부터 `.ts`로)
+
+### Phase 7 — 스모크 테스트 자동화 (리팩토링 완료 후)
+`docs/SMOKE_CHECKLIST.md`의 수동 항목을 실제 Netflix에서 자동 실행한다. 핵심 장애물은 브라우저 번역기가 Chrome **네이티브 UI**(우클릭 메뉴/주소창 아이콘)라 페이지 JS로 켤 수 없다는 점 하나이며, Chrome 설정 → 언어에서 자막 언어를 **"항상 번역"**으로 지정해 두면 사라진다.
+
+**1단계 — Claude가 Chrome을 직접 조작 (도구: claude-in-chrome MCP)**
+- 로그인된 실제 Chrome 세션을 그대로 사용. CI가 아니라 "스모크 돌려줘" 한 마디로 수동 20분을 대체하는 용도
+- 절차: 타이틀 URL 열기 → `.player-timedtext` / `.my-timedtext-container` 등장 대기 → 콘솔 에러 수집 → 자막 텍스트 미러링 확인 → `getBoundingClientRect()`로 원본/번역 박스 겹침 여부를 수치로 단언(B-3, B-4) → `video.currentTime = duration − 5`로 자동재생 유도(C-1) → `chrome-extension://<id>/popup.html`을 탭으로 열어 컨트롤 조작(E) → 창 리사이즈(F)
+- 산출물: 체크리스트 형식 보고. 필요 시 `scripts/smoke-steps.md`로 절차 고정
+- 전제: 자막 언어 "항상 번역" 설정, 자막이 있는 타이틀 URL
+
+**2단계 — Playwright 로컬 E2E (옵트인)**
+- 전용 Chrome 프로필(Netflix 로그인 1회) + `chromium.launchPersistentContext(profileDir, { channel: 'chrome', args: ['--load-extension=dist', '--disable-extensions-except=dist'] })`
+- `test/e2e/netflix.spec.js`에 1단계 절차를 스크립트화. 팝업 조작은 `context.serviceWorkers()`로 확장 컨텍스트에 들어가 `chrome.storage.sync.set` 직접 호출로 대체 가능
+- **CI에서는 돌리지 않는다** (계정·DRM). `npm run e2e`로 로컬 전용, Netflix의 자동화 감지 가능성이 있어 실패 시 수동 스모크로 폴백
+- 검증 불가로 남는 것: Edge 번역기(G), 실제 화면의 시각 품질(스크린샷 첨부로 보완)
 
 ## 4. 리스크
 Netflix 실제 DOM에서만 확인되는 동작이 있어 자동 테스트만으로 안전을 보장할 수 없다. 단계를 잘게 나누고 매 단계 수동 스모크를 수행한다.
