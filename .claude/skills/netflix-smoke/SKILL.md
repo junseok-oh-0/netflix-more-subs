@@ -1,6 +1,6 @@
 ---
 name: netflix-smoke
-description: Run the live-Netflix smoke test for the Dual Subtitles extension by driving the user's logged-in Chrome with the claude-in-chrome tools, then report a checklist. Use when the user asks to run the smoke test, "스모크 돌려줘", or to verify the built extension on real Netflix.
+description: Run the live-Netflix smoke test for the Netflix More Subs extension by driving the user's logged-in Chrome with the claude-in-chrome tools, then report a checklist. Use when the user asks to run the smoke test, "스모크 돌려줘", or to verify the built extension on real Netflix.
 ---
 
 # Netflix live smoke test

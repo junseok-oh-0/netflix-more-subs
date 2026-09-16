@@ -1,93 +1,41 @@
-# Dual Subtitles for Netflix
-[Now available here on the Chrome Extension Store](https://chrome.google.com/webstore/detail/netflix-language-learning/ljnmedkgcgidbbjhbkdonempgcgdhjfl?hl=en)
+# Netflix More Subs
 
-<sup> Released Version (Has been submitted for review): **v1.9** New persistent extension button in playback bar for convenient access to new settings menu </sup>
+Netflix 위에 두 번째 자막 줄을 얹어 주는 Chrome 확장. 원본 자막은 그대로 두고(`translate="no"`), 그 아래에 번역 가능한 복제본(`translate="yes"`)을 만들어 브라우저 번역기가 그 줄만 번역하게 한다. 그래서 원문과 번역을 동시에 볼 수 있다.
 
-Works with the browser's built-in translator to enable dual language subtitles on Netflix
+**상태: v0.1.0, 미완성, 개인 사이드 프로젝트.** [DeeFrancois/netflix-dual-subs](https://github.com/DeeFrancois/netflix-dual-subs) v1.9를 포크해 전면 리팩토링한 것이며, 스토어에 올라간 원작과는 별개로 개발한다. 원작의 아이디어와 코드에 감사한다 (GPL-3.0).
 
-![demo](https://github.com/DeeFrancois/netflix-dual-subs/blob/master/DocumentImages/demo.gif)
+## 지금 되는 것
+- 재생 시작·에피소드 자동재생·타이틀 전환 시 두 번째 자막 줄 표시 (스택 / 좌우 배치)
+- 확장 아이콘 팝업에서 크기·색·투명도·on/off·배치 모드 설정. 설정은 `chrome.storage.sync`에 저장되고 즉시 반영
+- 브라우저 번역기(우클릭 → "번역")를 켜면 두 번째 줄만 번역됨
 
-<sup><sup>_Hjem Til Jul (2019)_</sup></sup>
-#### *Some titles in the following languages may contain hardcoded subtitles which this extension cannot support: Arabic, Hebrew, Hindi, Japanese, Korean, Persian, Thai, Traditional Chinese, Vietnamese*
-However, you can still use the **Alternate Method** mentioned below (but it is a less-than-ideal experience)
+## 앞으로 할 것
+브라우저 번역기 의존을 없애고 **CTranslate2 위의 `nllb-200-distilled-600M`** 로컬 번역 서버를 붙여 확장이 직접 번역한다. 계획은 [docs/ROADMAP.md](docs/ROADMAP.md).
 
-<sup> Note: I haven't seen hardcoded subtitles on Netflix in a while though, so this actually might not be an issue anymore. Still, I haven't checked enough titles to make any guarantees. </sup>
-
-## Motivation
-I'm learning Norwegian and I've found that dual subtitles are a really great language learning tool. Many people tend to watch foreign shows with their native subs on while using a seperate tab to constantly look up words they don't know. Having dual subtitles makes that process more efficient by bringing the translations directly onto the video.
-
-After successfully adding dual subs to NRK TV with my [previous extension](https://chrome.google.com/webstore/detail/nrk-tv-language-learning/lmjfcijpnghdkpnoakgljodpjnimbakp), I figured I'd try making it work for Netflix as well so more people can benefit from this functionality.
-
-## How to use
-
-#### Recommended Method:
-1. Turn on the subtitles for your Target Language
-2. Right Click the page --> "Translate to [Native Language]"
-(Does not work if your Target Language is: Arabic Hebrew Hindi Japanese Korean Persian Thai Chinese Vietnamese)
-
-#### Alternate Method (Works with ALL LANGUAGES):
-1. Turn on the subtitles in your Native Language
-2. Right Click --> Translate to your target language
-
-You can click the extension icon at the top right to customize text color, size, and opacity. 
-
-![demo](https://github.com/DeeFrancois/netflix-dual-subs/blob/master/DocumentImages/settings.gif)
-
-
-
-## There are plenty of Netflix Dual Subtitle Extensions already, why should I use this?
-Unfortunately the other extensions are either sketchy/not open-source, cost money, or just too obtrusive. I wanted something more lightweight that felt like I was still watching Netflix normally rather than using a full blown language learning program.
-
-Also, the other extensions work by downloading both language subtitle files and displaying them. The problem with this is that the subtitles are based on the audio tracks of the respective language. This means that often times the subtitles are entirely different sentences from eachother rather than direct translations. (This is why they usually need a "hover for translation feature")
-
-While that is great for beginners getting familiar with the language, I feel like direct translations are better for active learning.
-
-## More rambling
-
-Incase you didn't know, you can browse for shows by subtitle/audio language here https://www.netflix.com/browse/subtitles. Finding a show through there will actually enable audio/subtitle tracks that are hidden by default. (But just putting the language in the search bar is better for finding actual foreign shows).
-
-** You can also watch shows in your native language and then tell your browser to translate the secondary subtitles into whatever language you're learning (including languages that I said aren't supported). But I don't know if that's an effective way to learn and it's too many steps to ask of people so I don't advertise it as a main feature.
-
-Google Translate is not perfect! The accuracy is fine for me, but I'm someone that already knows enough to notice the mistakes. The benefit of using the other dual subs extensions is that you are guaranteed to get sentences that make sense even if they aren't direct translations.
-
-## Development
-
+## 설치 (개발용)
 ```
 npm install
-npm run build        # bundles src/ into dist/ (load dist/ as an unpacked extension)
-npm test             # vitest: unit tests + the content script running against a fake Netflix player
-npm run lint         # eslint
-npm run typecheck    # tsc --noEmit
-npm run build:dev    # same as build, plus localhost matches for the fixture page
-npm run fixture      # serves test/fixtures/fake-player.html at http://localhost:8787/
+npm run build          # src/ → dist/
 ```
+`chrome://extensions` → 개발자 모드 → "압축해제된 확장 프로그램 로드" → `dist/`. 확장을 다시 로드한 뒤에는 **열려 있던 Netflix 탭도 새로고침**해야 한다 (옛 content script가 남는다).
 
-Sources are TypeScript in `src/`; `dist/` is generated. The refactoring plan, per-phase logs, and the manual smoke checklist are in `docs/`.
+## 사용
+1. Netflix에서 배우려는 언어의 자막을 켠다
+2. (선택) 우클릭 → "…로 번역" 으로 브라우저 번역기를 켜면 아래 줄이 번역된다
+3. 확장 아이콘 팝업에서 모양을 조절한다
 
-## Past Updates:
+## 개발
+```
+npm test               # vitest: 단위 + content script를 가짜 Netflix 플레이어에서 실행
+npm run lint           # eslint
+npm run typecheck      # tsc --noEmit
+npm run build:dev      # localhost 매치가 추가된 dist/ (픽스처 페이지용)
+npm run fixture        # test/fixtures/fake-player.html → http://localhost:8787/
+```
+- 소스는 TypeScript, `src/`. `dist/`는 생성물
+- 문서: [docs/REFACTORING_PLAN.md](docs/REFACTORING_PLAN.md)(계획·결정·결함 이력), `docs/REFACTORING_PHASE_N.md`(단계별 기록), [docs/SMOKE_CHECKLIST.md](docs/SMOKE_CHECKLIST.md)(실물 확인 항목), [docs/SMOKE_AUTOMATION.md](docs/SMOKE_AUTOMATION.md)
+- 실물 스모크: Claude Code에서 `/netflix-smoke`
+- 작업 규칙: [CLAUDE.md](CLAUDE.md)
 
-v1.2: Extension name change, Removed requirement of User History Permission
-
-v1.2.5: Feedback button
-
-v1.2.8: Netflix Update broke the extension, it's working now but without the bottom bar buttons (will be added back in next update)
-
-v1.3.0: Edge compatibility
-
-v1.3.5-v1.3.7: classname hotfixes (Netflix keeps adjusting the class names which breaks the extension)
-
-v1.4.0: Bottom Bar Buttons + Preference/classname patches
-
-v1.4.5: classname patch
-
-v1.5.2: Tutorial button + major bug fixes
-
-v1.5.4: Edge compatibility fixed (yay! won't actually need seperate Edge Version) <-- I was wrong lol
-
-v1.6.0: Stacked subtitles + Edge compatibility fixed for real this time 
-
-v1.8.0: Resize text instead of going offscreen, subs no longer prevent clicking the seekbar, subs are no longer annoyingly close to the seekbar, on/off button bugfix, and started code cleanup process.
-
-v1.8.5: Recalibrated to work with new Netflix UI code changes
-
-Licensed under the [GPL-3.0 License](LICENSE).
+## 라이선스
+[GPL-3.0](LICENSE). 원작 © DeeFrancois, 변경분 © Junseok Oh.

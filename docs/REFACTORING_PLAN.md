@@ -138,7 +138,7 @@ src/
 - 산출물: 체크리스트 형식 보고. 필요 시 `scripts/smoke-steps.md`로 절차 고정
 - 전제: 자막 언어 "항상 번역" 설정, 자막이 있는 타이틀 URL
 
-**2단계 — Playwright 로컬 E2E (옵트인)**
+**2단계 — Playwright 로컬 E2E (옵트인)** — 2026-09-16 보류: Claude 스킬로 충분하다고 판단 (`docs/ROADMAP.md`)
 - 전용 Chrome 프로필(Netflix 로그인 1회) + `chromium.launchPersistentContext(profileDir, { channel: 'chrome', args: ['--load-extension=dist', '--disable-extensions-except=dist'] })`
 - `test/e2e/netflix.spec.js`에 1단계 절차를 스크립트화. 팝업 조작은 `context.serviceWorkers()`로 확장 컨텍스트에 들어가 `chrome.storage.sync.set` 직접 호출로 대체 가능
 - **CI에서는 돌리지 않는다** (계정·DRM). `npm run e2e`로 로컬 전용, Netflix의 자동화 감지 가능성이 있어 실패 시 수동 스모크로 폴백

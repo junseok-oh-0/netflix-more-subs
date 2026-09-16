@@ -1,31 +1,25 @@
 {
   "manifest_version": 3,
-
-  "name": "Dual Subtitles for Netflix",
-  "description": "Helps you learn languages using Netflix. Uses your browser's Auto-Translator to ensure direct translations.",
-  "version": "1.9",
-
+  "name": "Netflix More Subs",
+  "description": "Adds a second, translatable subtitle line under the original on Netflix. Personal fork of Dual Subtitles for Netflix.",
+  "version": "0.1.0",
   "icons": {
-    "128": "icons/icon128.png",
-    "48": "icons/icon48.png",
-    "32": "icons/icon32.png",
+    "16": "icons/icon16.png",
     "24": "icons/icon24.png",
-    "16": "icons/icon16.png"
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
-
   "background": {
     "service_worker": "background.js"
   },
-
   "permissions": ["storage"],
-
   "content_scripts": [
     {
       "matches": ["https://www.netflix.com/*"],
       "js": ["content.js"]
     }
   ],
-
   "action": {
     "default_icon": "icons/icon32.png",
     "default_popup": "popup.html"
