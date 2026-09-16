@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{js,mjs,ts,html,json,md}\"",
     "format:check": "prettier --check \"**/*.{js,mjs,ts,html,json,md}\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "smoke:snippet": "node scripts/smoke/snippet.mjs"
   },
   "repository": {
     "type": "git",

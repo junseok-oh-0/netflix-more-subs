@@ -132,7 +132,7 @@ src/
 ### Phase 7 — 스모크 테스트 자동화 (리팩토링 완료 후)
 `docs/SMOKE_CHECKLIST.md`의 수동 항목을 실제 Netflix에서 자동 실행한다. 핵심 장애물은 브라우저 번역기가 Chrome **네이티브 UI**(우클릭 메뉴/주소창 아이콘)라 페이지 JS로 켤 수 없다는 점 하나이며, Chrome 설정 → 언어에서 자막 언어를 **"항상 번역"**으로 지정해 두면 사라진다.
 
-**1단계 — Claude가 Chrome을 직접 조작 (도구: claude-in-chrome MCP)**
+**1단계 — Claude가 Chrome을 직접 조작 (도구: claude-in-chrome MCP)** — 구현 완료 2026-09-16: `scripts/smoke/page-checks.js` + `test/page-checks.test.js` + 스킬 `/netflix-smoke`. 상세는 `docs/SMOKE_AUTOMATION.md`. 번역기 없이 `translate` 플래그·미러링·실측 배치만 검증한다는 원칙으로 "항상 번역" 전제는 삭제
 - 로그인된 실제 Chrome 세션을 그대로 사용. CI가 아니라 "스모크 돌려줘" 한 마디로 수동 20분을 대체하는 용도
 - 절차: 타이틀 URL 열기 → `.player-timedtext` / `.my-timedtext-container` 등장 대기 → 콘솔 에러 수집 → 자막 텍스트 미러링 확인 → `getBoundingClientRect()`로 원본/번역 박스 겹침 여부를 수치로 단언(B-3, B-4) → `video.currentTime = duration − 5`로 자동재생 유도(C-1) → `chrome-extension://<id>/popup.html`을 탭으로 열어 컨트롤 조작(E) → 창 리사이즈(F)
 - 산출물: 체크리스트 형식 보고. 필요 시 `scripts/smoke-steps.md`로 절차 고정

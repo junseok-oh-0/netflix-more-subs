@@ -5,7 +5,7 @@
 표기: `[y]` 성공 · `[n]` 실패 · `[?]` 코멘트 필요 · `[ ]` 미실행. `n`/`?`는 항목 뒤에 ` -> 코멘트`를 붙인다.
 실행 기록은 각 Phase 문서에 남기고, 발견된 결함은 `REFACTORING_PLAN.md` §5 표에 등록한다.
 
-마지막 실행: 2026-09-16 (Phase 3 `9c17a66`) — SM-1·SM-2 해소 확인, SM-6 발견 (결과는 `REFACTORING_PHASE_3.md`). 아래는 Phase 4+5용으로 초기화된 목록.
+마지막 실행: 2026-09-16 (Phase 6 TS 번들 `41675ce`, 자동화 1단계 첫 실행) — 전부 통과, E-11·G 미실행. 결과는 `REFACTORING_PHASE_7.md`. 이후 실행은 `/netflix-smoke` 스킬로.
 
 ## 준비
 1. `npm run build` → `chrome://extensions` → "압축해제된 확장 프로그램 로드" → `dist/` 선택 (이미 로드돼 있으면 "새로고침")
