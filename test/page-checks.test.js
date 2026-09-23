@@ -52,6 +52,28 @@ describe('runPageChecks', () => {
     ]);
   });
 
+  it('skips the mirror/original comparison checks when Dual Subtitles is off, rather than failing them', async () => {
+    const host = await loadExtension();
+    await playing(host, {
+      original: { top: 400, bottom: 440, left: 300, right: 660, height: 40 },
+      mirror: { top: 448, bottom: 490, left: 280, right: 680, height: 42 },
+      watchVideo: { top: 0, bottom: 540, left: 0, right: 960 },
+    });
+    host.chrome.changePreference('on_off', false);
+    // Matches production: turning off never sets translate="no" on the original, since addSubs()
+    // skips its body entirely while off (the extension leaves the page as if it weren't there).
+    host.document.querySelector('.player-timedtext-text-container').removeAttribute('translate');
+
+    // fontMultiplier is deliberately included here too: the mirror's font size is stale while
+    // off (Netflix keeps re-rendering the original at its own size), so this must be skipped
+    // rather than compared, same as the mirror/original checks above.
+    const report = runPageChecks(host.document, { fontMultiplier: 1.5 });
+    expect(ids(report, false)).toEqual([]);
+    expect(report.ok).toBe(true);
+    expect(ids(report, true)).toContain('A3/A4/B1-B4 skipped: Dual Subtitles is off (mirror hidden)');
+    expect(ids(report, true)).not.toContain('E font multiplier');
+  });
+
   it('reports no subtitle on screen without throwing', async () => {
     const host = await loadExtension();
     host.player.loadVideo();

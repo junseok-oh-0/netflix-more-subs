@@ -39,9 +39,19 @@ function runPageChecks(doc, expected = {}) {
   const mirrorText = text(mirror);
   const subtitleOnScreen = originalText.length > 0;
   const mode = mirror && mirror.style.top !== '' ? 'stacked' : 'side-by-side';
+  // While Dual Subtitles is OFF, the mirror is hidden and addSubs() never runs its body — the
+  // original is deliberately left untouched (no translate="no", no forced color) so the page
+  // behaves as if the extension weren't there. The mirror/original comparison checks below don't
+  // apply in that state; they'd otherwise fail on a state the extension put itself into on purpose.
+  const dualSubsOff = mirror ? getComputedStyle(mirror).display === 'none' : false;
 
   if (!subtitleOnScreen) {
     add('B0 subtitle on screen', false, { note: 'no original subtitle text right now; B checks skipped' });
+  } else if (dualSubsOff) {
+    add('B0 subtitle on screen', true, { originalText });
+    add('A3/A4/B1-B4 skipped: Dual Subtitles is off (mirror hidden)', true, {
+      mirrorDisplay: mirror ? getComputedStyle(mirror).display : null,
+    });
   } else {
     add('B0 subtitle on screen', true, { originalText });
     add('A4 original is not translatable (translate="no")', original.getAttribute('translate') === 'no', {
@@ -110,7 +120,10 @@ function runPageChecks(doc, expected = {}) {
       add('E original color', style.originalColor === expected.originalColor, style);
     if (expected.mirrorOpacity != null)
       add('E opacity', near(+style.mirrorOpacity, expected.mirrorOpacity, 0.01), style);
-    if (expected.fontMultiplier != null && style.originalFontPx) {
+    // Skipped while off: the mirror's font size is whatever it was last set to while on (stale),
+    // but the original keeps rendering fresh at Netflix's own size regardless — the two are no
+    // longer related once the extension stops driving the mirror, so comparing them is meaningless.
+    if (expected.fontMultiplier != null && style.originalFontPx && !dualSubsOff) {
       add(
         'E font multiplier',
         near(style.mirrorFontPx, style.originalFontPx * expected.fontMultiplier, 2),
