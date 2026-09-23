@@ -11,9 +11,13 @@ const STACK_GAP_PX = 8;
 // UA sniffing is not foolproof but good enough to pick the translator workaround.
 const IS_EDGE = navigator.userAgent.includes('Edg/');
 
+// A thin black stroke keeps the translated line readable over light/busy video backgrounds where
+// the blur-only shadow isn't enough; paint-order draws the stroke behind the fill so it doesn't
+// eat into thin glyph strokes.
 const CONTAINER_BASE_STYLE =
   'display: block; text-align: center; position: absolute; font-size:21px; line-height:normal; color:#ffffff;' +
-  ' text-shadow:#000000 0px 0px 7px; font-family:Netflix Sans,Helvetica Nueue,Helvetica,Arial,sans-serif; font-weight:bolder;';
+  ' text-shadow:#000000 0px 0px 7px; -webkit-text-stroke: 1px #000000; paint-order: stroke fill;' +
+  ' font-family:Netflix Sans,Helvetica Nueue,Helvetica,Arial,sans-serif; font-weight:bolder;';
 // pointer-events: none keeps big text from blocking the seekbar
 const CONTAINER_STACKED_STYLE =
   CONTAINER_BASE_STYLE +
