@@ -51,7 +51,7 @@ describe('content script on the fake player', () => {
   it('gives the mirror a thin black outline for readability over busy backgrounds', async () => {
     await startPlayback(host);
     const el = mine(host);
-    expect(el.style.webkitTextStroke).toBe('1px #000000');
+    expect(el.style.webkitTextStroke).toBe('2px #000000');
   });
 
   it('marks the mirror translatable once a subtitle appears (browser mode, the default)', async () => {

@@ -16,7 +16,7 @@ const IS_EDGE = navigator.userAgent.includes('Edg/');
 // eat into thin glyph strokes.
 const CONTAINER_BASE_STYLE =
   'display: block; text-align: center; position: absolute; font-size:21px; line-height:normal; color:#ffffff;' +
-  ' text-shadow:#000000 0px 0px 7px; -webkit-text-stroke: 1px #000000; paint-order: stroke fill;' +
+  ' text-shadow:#000000 0px 0px 7px; -webkit-text-stroke: 2px #000000; paint-order: stroke fill;' +
   ' font-family:Netflix Sans,Helvetica Nueue,Helvetica,Arial,sans-serif; font-weight:bolder;';
 // pointer-events: none keeps big text from blocking the seekbar
 const CONTAINER_STACKED_STYLE =
