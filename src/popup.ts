@@ -32,7 +32,9 @@ async function init(): Promise<void> {
     if (href) chrome.tabs.create({ url: href });
   });
 
-  const controls: Record<PreferenceKey, Control> = {
+  // `translator` is a <select>, not an HTMLInputElement, and needs an extra hidden-section toggle
+  // that no other control needs — it's wired separately below rather than forced into this map.
+  const controls: Partial<Record<PreferenceKey, Control>> = {
     on_off: { el: input('switchValue'), prop: 'checked', event: 'change' },
     button_up_down_mode: { el: input('button_upDownValue'), prop: 'checked', event: 'change' },
     font_multiplier: { el: input('mySlider'), prop: 'value', event: 'change', label: byId('mySliderValue') },
@@ -50,6 +52,9 @@ async function init(): Promise<void> {
     },
     originaltext_color: { el: input('myOriginalColorPicker'), prop: 'value', event: 'input' },
     text_color: { el: input('myColorPicker'), prop: 'value', event: 'input' },
+    sourceLang: { el: input('sourceLang'), prop: 'value', event: 'change' },
+    targetLang: { el: input('targetLang'), prop: 'value', event: 'change' },
+    localServerUrl: { el: input('localServerUrl'), prop: 'value', event: 'change' },
   };
 
   function render(prefs: Partial<Preferences>): void {
@@ -63,7 +68,8 @@ async function init(): Promise<void> {
     }
   }
 
-  render(await loadPreferences());
+  const prefs = await loadPreferences();
+  render(prefs);
 
   for (const [key, c] of Object.entries(controls) as [PreferenceKey, Control][]) {
     c.el.addEventListener(c.event, () => {
@@ -72,6 +78,22 @@ async function init(): Promise<void> {
       savePreference(key, value);
     });
   }
+
+  // Translator engine: a <select>, so it doesn't fit the checkbox/range/color Control shape above,
+  // and switching it also needs to show/hide the local-server settings section.
+  const translatorSelect = byId<HTMLSelectElement>('translatorEngine');
+  const localSettings = byId('localSettings');
+
+  function applyTranslatorVisibility(value: string): void {
+    localSettings.hidden = value !== 'local';
+  }
+
+  translatorSelect.value = prefs.translator;
+  applyTranslatorVisibility(prefs.translator);
+  translatorSelect.addEventListener('change', () => {
+    savePreference('translator', translatorSelect.value);
+    applyTranslatorVisibility(translatorSelect.value);
+  });
 
   // Reset covers appearance only; the on/off and stacked toggles keep their state.
   byId('resetButton').addEventListener('click', async () => {

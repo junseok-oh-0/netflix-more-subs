@@ -57,6 +57,14 @@ Python/FastAPI. TS 쪽과 도구가 다르므로 별도 규칙.
 - 서버는 로컬 전용(127.0.0.1), CORS 전부 허용 — 인터넷에 노출하는 변경을 하지 않는다
 - 서버를 띄워 테스트한 뒤에는 **반드시 프로세스를 죽인다** (`pkill -f "uvicorn app:app"` 또는 PID). 켜둔 채 세션을 넘기지 않는다
 
+## 로컬 번역(NLLB) — 통합 패턴
+상세는 `docs/NLLB_TRANSLATION.md`(작업 일지 겸 사용법). 여기는 재사용할 패턴만.
+
+- `subtitles.ts`의 `createSubtitleSession(...)`은 `translate` 함수를 4번째 인자로 주입받는다(기본값은 실제 구현). 테스트는 `chrome.runtime.sendMessage`까지 안 가고 `host.chrome.setSendMessageHandler(...)`로 응답을 직접 제어한다 (`test/helpers/extension-host.js`)
+- **비동기 자막 갱신은 반드시 staleness 가드가 있어야 한다.** 자막은 빠르게 바뀌므로, 늦게 도착한 응답이 그새 바뀐 화면을 덮어쓰면 안 된다. `translationSeq` 카운터 패턴(요청 시점의 값을 캡처, 응답 시점에 비교) 참고. 새로 비동기 자막 갱신을 추가할 때 이 패턴을 복사한다
+- 오토 리졸브(즉시 resolve하는) mock으로는 "응답 대기 중" 상태를 테스트할 수 없다 — `await tick()` 한 번에 마이크로태스크가 이미 다 풀린다. `deferred()`(resolve를 밖에서 쥐는 Promise) 패턴을 쓴다 (`test/characterization.test.js`)
+- content→background 메시지 핸들러를 `window.eval`로 번들 실행하는 테스트에서, mock 에러 객체는 **그 window의 생성자**로 만든다 (`new bg.window.TypeError(...)`, `new TypeError(...)` 아님). `instanceof` 체크가 realm을 타기 때문 — 한 번 이걸로 테스트가 깨졌었다
+
 ## 함정 메모
 - `.player-timedtext`는 브라우즈 페이지 미리보기에도 나타난다 → `closest('.watch-video')` 없으면 세션 만들지 않음 (SM-6)
 - 자동재생은 플레이어 뷰를 유지하고 캡션 노드만 교체한다 → 감지는 캡션 노드 출현 기준 (SM-1)

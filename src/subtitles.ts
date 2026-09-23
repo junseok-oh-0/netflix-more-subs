@@ -2,6 +2,8 @@ import { TEXT_CONTAINER } from './netflix-selectors';
 import { injectStyle, overflowsParent, readBaseFont, removeStyle, styledTextElements } from './dom';
 import { SINGLE_LINE_CSS, bottomAlignedTo, fitFontSize, sideBySideLeftPx, topBelow } from './layout';
 import type { PreferenceKey, Preferences } from './preferences';
+import { translateLocal } from './translation/local-client';
+import type { Translate } from './translation/types';
 
 const CONTAINER_CLASS = 'my-timedtext-container';
 const STYLE_ID = 'dsubs-single-line';
@@ -47,6 +49,10 @@ interface SessionState {
   oldInset: string;
   observer: MutationObserver;
   tracker: MutationObserver;
+  // Bumped whenever the subtitle text changes or clears, so a translation response that arrives
+  // after the text has already moved on can be told apart from one that's still current.
+  translationSeq: number;
+  disposed: boolean;
 }
 
 function colorAll(elements: Iterable<Element>, color: string): void {
@@ -59,6 +65,7 @@ export function createSubtitleSession(
   timedtext: HTMLElement,
   watchVideo: HTMLElement,
   prefs: Preferences,
+  translate: Translate = translateLocal,
 ): SubtitleSession {
   const stacked = (): boolean => prefs.button_up_down_mode;
 
@@ -71,7 +78,7 @@ export function createSubtitleSession(
     `<div class="${CONTAINER_CLASS}" style="${stacked() ? CONTAINER_STACKED_STYLE : CONTAINER_SIDE_STYLE}"><span id="my_subs_innertext"></span></div>`,
   );
   const container = watchVideo.lastElementChild as HTMLElement;
-  container.setAttribute('translate', 'yes');
+  // translate attribute is set per-update by applyTranslatedText() below, based on prefs.translator.
   if (stacked() && prefs.on_off) injectStyle(STYLE_ID, SINGLE_LINE_CSS);
 
   const s: SessionState = {
@@ -82,6 +89,8 @@ export function createSubtitleSession(
     oldInset: timedtext.style.inset,
     observer: new MutationObserver(onOriginalMutation),
     tracker: new MutationObserver(onTranslation),
+    translationSeq: 0,
+    disposed: false,
   };
   s.tracker.observe(s.container, OBSERVE_TRANSLATION);
   s.observer.observe(timedtext, OBSERVE_ORIGINAL);
@@ -105,6 +114,7 @@ export function createSubtitleSession(
           // No children means the mutation was a subtitle CLEAR rather than a refresh
           s.container.innerText = '';
           s.lastSubs = '';
+          s.translationSeq++; // drop any in-flight translation for the subtitle that just left
         }
       } else if (
         prefs.on_off &&
@@ -159,7 +169,7 @@ export function createSubtitleSession(
       const text = orig.innerText;
       if (text !== s.lastSubs) {
         s.lastSubs = text;
-        s.container.innerText = text;
+        applyTranslatedText(text);
       }
       s.currentSize = s.baseFont * prefs.font_multiplier + 'px';
 
@@ -171,6 +181,30 @@ export function createSubtitleSession(
       updateStyle('font_size');
     }
     s.observer.observe(timedtext, OBSERVE_ORIGINAL);
+  }
+
+  // Shows `text` immediately (so there's no visible delay), then — in local mode — asynchronously
+  // replaces it with the translated result. `translationSeq` guards against a response landing
+  // after the subtitle has already moved on to something else.
+  function applyTranslatedText(text: string): void {
+    s.container.innerText = text;
+
+    if (prefs.translator !== 'local') {
+      s.container.setAttribute('translate', 'yes'); // let the browser translator handle this line
+      return;
+    }
+    s.container.setAttribute('translate', 'no'); // we own translation; don't double-translate
+    if (!text) return;
+
+    const requestId = ++s.translationSeq;
+    translate(text, prefs.sourceLang, prefs.targetLang, prefs.localServerUrl)
+      .then((translated) => {
+        if (s.disposed || s.translationSeq !== requestId) return; // stale: subtitle moved on
+        s.container.innerText = translated;
+      })
+      .catch(() => {
+        // Network/server error: leave the original text showing rather than crash the session.
+      });
   }
 
   // Netflix constantly refreshes the text, so styles have to be reapplied after a resize.
@@ -309,6 +343,14 @@ export function createSubtitleSession(
       case 'originaltext_opacity':
         updateStyle('opacity');
         break;
+      case 'translator':
+      case 'sourceLang':
+      case 'targetLang':
+      case 'localServerUrl':
+        // Re-run the current subtitle through the new engine/language/server right away, instead
+        // of waiting for the next subtitle change.
+        if (s.lastSubs) applyTranslatedText(s.lastSubs);
+        break;
       case 'button_up_down_mode':
         if (prefs.button_up_down_mode) enterStacked();
         else exitStacked();
@@ -319,6 +361,7 @@ export function createSubtitleSession(
   function dispose(): void {
     s.observer.disconnect();
     s.tracker.disconnect();
+    s.disposed = true;
     s.container.remove();
     removeStyle(STYLE_ID);
   }

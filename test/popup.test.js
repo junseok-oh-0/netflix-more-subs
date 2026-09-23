@@ -74,3 +74,49 @@ describe('popup', () => {
     expect(popup.document.getElementById('switchValue').checked).toBe(false);
   });
 });
+
+describe('popup: local translation settings', () => {
+  it('defaults to the browser translator with the local settings section hidden', async () => {
+    const popup = await loadPopup({});
+    const d = popup.document;
+    expect(d.getElementById('translatorEngine').value).toBe('browser');
+    expect(d.getElementById('localSettings').hidden).toBe(true);
+  });
+
+  it('shows the local settings section and fills it when translator=local is stored', async () => {
+    const popup = await loadPopup({
+      translator: 'local',
+      sourceLang: 'jpn_Jpan',
+      targetLang: 'zho_Hans',
+      localServerUrl: 'http://127.0.0.1:9000',
+    });
+    const d = popup.document;
+    expect(d.getElementById('translatorEngine').value).toBe('local');
+    expect(d.getElementById('localSettings').hidden).toBe(false);
+    expect(d.getElementById('sourceLang').value).toBe('jpn_Jpan');
+    expect(d.getElementById('targetLang').value).toBe('zho_Hans');
+    expect(d.getElementById('localServerUrl').value).toBe('http://127.0.0.1:9000');
+  });
+
+  it('saves the engine choice and toggles the section when changed', async () => {
+    const popup = await loadPopup({});
+    const select = popup.document.getElementById('translatorEngine');
+    select.value = 'local';
+    select.dispatchEvent(new popup.window.Event('change'));
+    expect(popup.chrome.storage.sync.set).toHaveBeenCalledWith({ translator: 'local' });
+    expect(popup.document.getElementById('localSettings').hidden).toBe(false);
+  });
+
+  it('saves language and server URL fields on change', async () => {
+    const popup = await loadPopup({ translator: 'local' });
+    const d = popup.document;
+
+    d.getElementById('targetLang').value = 'fra_Latn';
+    d.getElementById('targetLang').dispatchEvent(new popup.window.Event('change'));
+    expect(popup.chrome.storage.sync.set).toHaveBeenCalledWith({ targetLang: 'fra_Latn' });
+
+    d.getElementById('localServerUrl').value = 'http://127.0.0.1:9000';
+    d.getElementById('localServerUrl').dispatchEvent(new popup.window.Event('change'));
+    expect(popup.chrome.storage.sync.set).toHaveBeenCalledWith({ localServerUrl: 'http://127.0.0.1:9000' });
+  });
+});

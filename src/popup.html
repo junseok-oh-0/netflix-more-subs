@@ -117,9 +117,38 @@
     <div id = "colorPickerLabel">Translation Text Color</div>
     <input id="myColorPicker" type="color" value="#FFFF00">
 
-    
-
     <br>
+    <br>
+    <div id="translatorLabel">Translation Engine</div>
+    <select id="translatorEngine">
+      <option value="browser">Browser Translator</option>
+      <option value="local">Local Server (NLLB)</option>
+    </select>
+
+    <div id="localSettings" hidden>
+      <div id="sourceLangLabel">Source Language (NLLB code)</div>
+      <input id="sourceLang" type="text" list="nllbLangs" placeholder="eng_Latn">
+
+      <div id="targetLangLabel">Target Language (NLLB code)</div>
+      <input id="targetLang" type="text" list="nllbLangs" placeholder="kor_Hang">
+
+      <div id="localServerUrlLabel">Local Server URL</div>
+      <input id="localServerUrl" type="text" placeholder="http://127.0.0.1:8008">
+
+      <datalist id="nllbLangs">
+        <option value="eng_Latn">
+        <option value="kor_Hang">
+        <option value="jpn_Jpan">
+        <option value="zho_Hans">
+        <option value="zho_Hant">
+        <option value="spa_Latn">
+        <option value="fra_Latn">
+        <option value="deu_Latn">
+        <option value="rus_Cyrl">
+        <option value="por_Latn">
+      </datalist>
+    </div>
+
     <br>
     <input type="button" id="resetButton" value="Reset Settings" style="margin:auto; display:block;"></input>
     <br>

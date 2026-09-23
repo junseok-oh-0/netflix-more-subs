@@ -43,7 +43,16 @@ describe('content script on the fake player', () => {
     await startPlayback(host);
     const el = host.document.querySelector('.watch-video > .my-timedtext-container');
     expect(el).not.toBeNull();
-    expect(el.getAttribute('translate')).toBe('yes');
+    // translate is unset until the first subtitle arrives — it's set per-update (browser mode:
+    // "yes", local mode: "no"), not once at creation. See the next test for that.
+    expect(el.getAttribute('translate')).toBeNull();
+  });
+
+  it('marks the mirror translatable once a subtitle appears (browser mode, the default)', async () => {
+    await startPlayback(host);
+    host.player.showSubtitle(['x']);
+    await tick();
+    expect(mine(host).getAttribute('translate')).toBe('yes');
   });
 
   it('mirrors a one-container subtitle into its own container', async () => {
@@ -201,6 +210,83 @@ describe('content script on the fake player', () => {
     host.player.showSubtitle(['real player']);
     await tick();
     expect(mine(host).textContent).toBe('real player');
+  });
+
+  // A promise the test controls the resolution of — lets us assert the "still waiting" state
+  // deterministically, which an auto-resolving mock handler can't (its microtask would already
+  // have settled by the time a timer-based `await tick()` fires).
+  function deferred() {
+    let resolve;
+    const promise = new Promise((res) => (resolve = res));
+    return { promise, resolve };
+  }
+
+  describe('local translation mode', () => {
+    it('shows the original immediately, then swaps in the translation once it arrives', async () => {
+      host = await loadExtension({ preferences: { translator: 'local' } });
+      const d = deferred();
+      host.chrome.setSendMessageHandler(() => d.promise);
+      await startPlayback(host);
+
+      host.player.showSubtitle(['hello']);
+      await tick();
+      expect(mine(host).textContent).toBe('hello');
+      expect(mine(host).getAttribute('translate')).toBe('no'); // we own translation now, no double-translate
+
+      d.resolve({ ok: true, translations: ['안녕'] });
+      await tick();
+      expect(mine(host).textContent).toBe('안녕');
+      expect(host.window.__errors).toEqual([]);
+    });
+
+    it('drops a stale translation response for a subtitle that has already changed', async () => {
+      host = await loadExtension({ preferences: { translator: 'local' } });
+      const responses = { first: deferred(), second: deferred() };
+      host.chrome.setSendMessageHandler((msg) => responses[msg.texts[0]].promise);
+      await startPlayback(host);
+
+      host.player.showSubtitle(['first']);
+      await tick();
+      host.player.showSubtitle(['second']);
+      await tick();
+
+      responses.first.resolve({ ok: true, translations: ['FIRST-STALE'] });
+      await tick();
+      expect(mine(host).textContent).toBe('second'); // stale response ignored, still showing the original
+
+      responses.second.resolve({ ok: true, translations: ['SECOND-OK'] });
+      await tick();
+      expect(mine(host).textContent).toBe('SECOND-OK');
+    });
+
+    it('keeps showing the original text when the translation request fails', async () => {
+      host = await loadExtension({ preferences: { translator: 'local' } });
+      host.chrome.setSendMessageHandler(async () => ({ ok: false, error: 'server unreachable' }));
+      await startPlayback(host);
+
+      host.player.showSubtitle(['hello']);
+      await tick();
+      await tick();
+      expect(mine(host).textContent).toBe('hello');
+      expect(host.window.__errors).toEqual([]);
+    });
+
+    it('re-translates the current subtitle immediately when switching from browser to local mode', async () => {
+      await startPlayback(host);
+      host.player.showSubtitle(['hello']);
+      await tick();
+      expect(mine(host).getAttribute('translate')).toBe('yes'); // default engine is the browser translator
+
+      const d = deferred();
+      host.chrome.setSendMessageHandler(() => d.promise);
+      host.chrome.changePreference('translator', 'local');
+      await tick();
+      expect(mine(host).getAttribute('translate')).toBe('no');
+
+      d.resolve({ ok: true, translations: ['번역됨'] });
+      await tick();
+      expect(mine(host).textContent).toBe('번역됨');
+    });
   });
 
   it('lets the context menu through Netflix’s suppression so the translator can be opened', async () => {

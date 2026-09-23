@@ -3,8 +3,10 @@
 // outside itself. It returns a plain report object; nothing here mutates the page.
 //
 // The browser translator is deliberately NOT required: both containers may show the same text.
-// What matters is that the translate flags are set (original "no", ours "yes") and that the
-// mirror follows the original without overlapping it.
+// What matters is that the translate flags are set — original always "no", the mirror "yes" in
+// browser-translator mode or "no" in local (NLLB server) mode — and that the mirror follows the
+// original without overlapping it. The mirror has no translate attribute at all until the first
+// subtitle appears (it's set per-update, not once at creation), so that check waits for one.
 
 function runPageChecks(doc, expected = {}) {
   const checks = [];
@@ -28,9 +30,6 @@ function runPageChecks(doc, expected = {}) {
   add('A2 exactly one mirror container inside .watch-video', mirrors.length === 1, {
     count: mirrors.length,
   });
-  add('A3 mirror is translatable (translate="yes")', mirror && mirror.getAttribute('translate') === 'yes', {
-    translate: mirror ? mirror.getAttribute('translate') : null,
-  });
 
   // H. nothing from the old UI
   add('H1 no player-bar button', !doc.getElementById('myTutorialButton'));
@@ -48,6 +47,21 @@ function runPageChecks(doc, expected = {}) {
     add('A4 original is not translatable (translate="no")', original.getAttribute('translate') === 'no', {
       translate: original.getAttribute('translate'),
     });
+    const mirrorTranslate = mirror ? mirror.getAttribute('translate') : null;
+    add(
+      'A3 mirror has an explicit translate flag ("yes" or "no")',
+      mirrorTranslate === 'yes' || mirrorTranslate === 'no',
+      {
+        translate: mirrorTranslate,
+      },
+    );
+    if (expected.translator) {
+      const wantTranslate = expected.translator === 'local' ? 'no' : 'yes';
+      add(`E translator engine is "${expected.translator}"`, mirrorTranslate === wantTranslate, {
+        translate: mirrorTranslate,
+        expectedTranslator: expected.translator,
+      });
+    }
     const translated = !!(mirror && mirror.querySelector('font'));
     add('B1 mirror follows original text', translated || mirrorText === originalText, {
       originalText,

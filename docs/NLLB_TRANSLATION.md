@@ -25,10 +25,11 @@
 - [x] 계획 수립, 이 문서 작성 (2026-09-24)
 - [x] Part 1: 번역 서버 구현 (`server/`) — 2026-09-24, 실서버 curl 스모크까지 확인
 - [x] CLAUDE.md에 서버 개발 유의사항 추가 — 2026-09-24
-- [ ] 로드맵 재검토·갱신 (Part 1에서 배운 것 반영)
-- [ ] Part 2: TS 쪽 통합 (preferences → background → subtitles → popup)
-- [ ] 유닛 테스트 추가 (TS 쪽)
+- [x] Part 2: TS 쪽 통합 (preferences → background → subtitles → popup) — 2026-09-24
+- [x] 유닛 테스트 추가 (TS 쪽) — 2026-09-24, 68/68 통과 (서버 포함 시 전체 93/93)
 - [ ] 사용자 E2E (보류 — 사용자 입회 시 진행)
+
+**코딩 완료.** 계획대로 구현되고 유닛 테스트를 전부 통과해 이 작업을 완료로 처리한다(2026-09-24). 남은 것은 사용자가 입회하는 실물 Netflix E2E뿐 — 아래 "확인 필요" 참고.
 
 ## Part 1 — 번역 서버
 
@@ -114,23 +115,58 @@ RUN_MODEL_TESTS=1 pytest      # 실제 모델 로드까지 포함, 17개 ~5초 (
 - 동시성: `translate_batch` 전체를 `threading.Lock`으로 감쌈. FastAPI 라우트는 `def`(비-async)라 Starlette가 스레드풀에서 실행 → CT2 호출이 블로킹이어도 이벤트 루프가 막히지 않음
 
 ## Part 2 — 확장(TypeScript) 통합
-(구현하며 아래를 채운다)
 
-### 새 모듈
-- `src/translation/types.ts` — 메시지 프로토콜 타입 (content ↔ background)
-- `src/translation/local-client.ts` — content 쪽: `translateLocal(texts, prefs)`, 캐시, background로 메시지 전송
-- `background.ts` — 메시지 리스너: 로컬 서버로 실제 fetch
+### 최종 설계 (구현 전 확정, 2026-09-24)
 
-### Preferences 추가 키
+새 모듈:
+- `src/translation/types.ts` — `TranslateRequestMessage`/`TranslateResponseMessage`(content↔background 메시지), `Translate` 함수 타입(`(text, sourceLang, targetLang, serverUrl) => Promise<string>`)
+- `src/translation/local-client.ts` — content 쪽 `translateLocal: Translate`. 캐시(`Map`, 키 `sourceLang|targetLang|text`, 500개 FIFO) → 없으면 `chrome.runtime.sendMessage`로 background 호출 → 응답의 `translations[0]` 반환, 실패 시 throw
+- `background.ts` — `chrome.runtime.onMessage`에 `type: 'nllb-translate'` 메시지 핸들러 추가. 서버로 `POST {serverUrl}/translate` (body는 서버 계약대로 `source_lang`/`target_lang` snake_case), 실패 시 `{ok:false, error}`
+
+Preferences 추가 키 (실제 구현값):
 ```ts
-translator: 'browser' | 'local'   // 기본 'browser'
-sourceLang: string                // 기본 'eng_Latn'
+translator: 'browser' | 'local'   // 기본 'browser' — 하위호환, 아무것도 안 바꾸면 기존 동작 그대로
+sourceLang: string                // 기본 'eng_Latn', FLORES-200 정규식으로 검증
 targetLang: string                // 기본 'kor_Hang'
-localServerUrl: string            // 기본 'http://127.0.0.1:8008'
+localServerUrl: string            // 기본 'http://127.0.0.1:8008', new URL()로 http(s) 검증
 ```
+`normalizeValue`의 문자열 분기를 키별 `STRING_VALIDATORS` 맵으로 일반화(기존엔 모든 문자열 키가 hex color 취급이었음).
+
+`subtitles.ts` 통합 지점 — `createSubtitleSession(timedtext, watchVideo, prefs, translate: Translate = translateLocal)`:
+- 자막 텍스트가 바뀌면 **먼저 원문을 미러에 쓴다** (기존 동작과 동일, 지연 은폐)
+- `prefs.translator === 'local'`이면: 미러 `translate` 속성을 `"no"`로(이중 번역 방지), `translate(text, sourceLang, targetLang, localServerUrl)`를 비동기 호출, 도착하면 미러 텍스트를 교체
+- **stale 응답 방지**: 세션에 `translationSeq` 카운터. 자막이 바뀌거나 지워질 때마다 증가. 번역 응답이 오면 그 사이 seq가 바뀌었는지 확인 후에만 반영
+- `dispose()`된 세션에도 `disposed` 플래그로 응답 반영을 막음(이미 detach된 노드라 실질적 버그는 아니지만 일관성 유지)
+- `applyPreferenceChange`에 `translator`/`sourceLang`/`targetLang`/`localServerUrl` 케이스 추가: 현재 떠 있는 자막을 즉시 재번역(모드 전환이 다음 자막까지 기다리지 않게)
+- 여러 줄 자막(`\n` 포함, `mergeContainers`가 합친 결과)은 한 덩어리로 통째 번역 요청 — 줄별 분리는 v1에서 하지 않음(품질 트레이드오프, 필요해지면 재검토)
+
+팝업: 기존 `controls` 레코드(체크박스/슬라이더/컬러, 전부 `HTMLInputElement`)는 그대로 두고 `sourceLang`/`targetLang`/`localServerUrl`은 같은 패턴의 텍스트 입력으로 추가. `translator`(select)만 별도로 다룬다 — 엔진 select는 `HTMLSelectElement`라 기존 `Control` 인터페이스(`HTMLInputElement`)에 안 맞고, 로컬 설정 영역의 `hidden` 토글도 필요해서 어차피 특수 처리가 필요함. `controls` 타입을 `Record` → `Partial<Record>`로 바꿔 `translator`를 자연스럽게 빼는 방식.
 
 ### manifest.json
 `host_permissions`에 `http://127.0.0.1/*`, `http://localhost/*` 추가 (Chrome 매치 패턴은 포트를 명시하지 않으며 모든 포트에 매치됨 — MDN/Chrome 문서 기준. **E2E에서 실제 확인 필요**, 아래 "확인 필요" 참고).
+
+### 구현 결과 (2026-09-24)
+- `preferences.ts`: 문자열 타입 정규화를 키별 `STRING_VALIDATORS` 맵으로 일반화. `translator`/`sourceLang`/`targetLang`/`localServerUrl` 4개 키 추가
+- `src/translation/types.ts` — 메시지 타입, `Translate` 함수 타입. `src/translation/local-client.ts` — 캐시(Map, 500개 FIFO)만 담당; stale 응답 방지는 캐시가 아니라 `subtitles.ts`의 `translationSeq`가 담당
+- `background.ts`: `nllb-translate` 메시지 핸들러. 서버 응답 4xx/5xx는 `body.detail`을 그대로 에러 메시지로, 네트워크 실패는 `err.message`
+- `subtitles.ts`: **컨테이너 생성 시 `translate` 속성을 더 이상 즉시 설정하지 않는다** — 첫 자막이 뜰 때 `applyTranslatedText()`가 모드에 따라 설정(`yes`/`no`). `translationSeq`로 stale 응답 방지, `disposed` 플래그로 dispose 후 응답 무시. `applyPreferenceChange`에 4개 키 추가 — 모드/언어/서버 전환 시 현재 자막을 즉시 재번역
+- `popup.ts`/`popup.html`: `controls`를 `Record`→`Partial<Record>`로 바꿔 `translator`(select)를 일반 맵에서 제외하고 별도 배선(값 설정 + `localSettings` hidden 토글). `sourceLang`/`targetLang`/`localServerUrl`은 기존 텍스트 입력 패턴 그대로 추가, `<datalist>`로 흔한 언어 코드 자동완성
+- `manifest.json`: `host_permissions` 추가
+
+### 회귀 수정 (기존 동작 변화의 파급)
+`translate` 속성이 즉시 설정 → 지연 설정으로 바뀌면서 두 곳이 그 가정에 기대고 있었다:
+- `test/characterization.test.js`의 "creates the translated-subtitle container" — 컨테이너 생성 직후엔 `translate` 속성이 없다(`null`)는 것이 이제 맞는 동작. 자막이 뜬 뒤 `"yes"`가 되는지는 별도 테스트로 분리
+- `scripts/smoke/page-checks.js`(A3, `/netflix-smoke` 스킬이 실물 검증에 씀) — "mirror는 항상 `translate=yes`"라는 고정 불변식이 더 이상 성립하지 않음(로컬 모드면 `no`가 맞다). A3를 "자막이 있을 때 mirror는 `yes` 또는 `no` 중 하나를 명시적으로 갖는다"로 완화하고, 특정 엔진을 기대하는 라이브 스모크를 위해 `expected.translator: 'browser'|'local'` 옵션 추가
+
+### 테스트 구성 (신규/확장)
+- `test/preferences.test.js` — 4개 신규 키 정규화 (+7 테스트)
+- `test/translation/local-client.test.js` — 캐시, 언어쌍별 캐시 분리, 실패 시 미캐시, 에러 매핑 (6개, 신규 파일)
+- `test/background.test.js` — snake_case 필드 변환, 4xx/5xx→detail, 네트워크 실패, 무관한 메시지 무시 (4개, 신규 파일). **주의**: 이 테스트는 `window.eval`로 별도 jsdom realm에서 코드를 실행하므로, mock 에러 객체도 반드시 그 `window`의 생성자로 만들어야 한다(`instanceof Error`가 realm을 탄다) — 실제로 한 번 이걸로 테스트가 깨졌었다
+- `test/characterization.test.js` — `describe('local translation mode')` 4개: 즉시 원문 표시 후 교체, stale 응답 무시, 실패 시 원문 유지, 모드 전환 시 즉시 재번역. `deferred()` 헬퍼로 응답 타이밍을 직접 제어(오토 리졸브 mock은 `await tick()` 한 번에 이미 해소돼버려 "대기 중" 상태를 테스트할 수 없었음)
+- `test/popup.test.js` — 기본값/저장값 렌더링, hidden 토글, 저장 (4개, 신규 `describe`)
+- `test/helpers/extension-host.js` — `installChromeStub`에 `runtime.sendMessage` + `setSendMessageHandler` 추가 (기본은 reject)
+
+최종: TS 쪽 `npm test` 68/68 (8개 파일). 서버 쪽 `pytest` 25/25(+`RUN_MODEL_TESTS=1`이면 17개 추가). lint 0, typecheck 0, prettier 통과, 빌드 정상(content 17.3kb, popup 5.7kb, background 1.3kb).
 
 ## 확인 필요 (E2E에서 사용자가 검증)
 - [ ] `host_permissions`의 포트 없는 패턴이 실제로 임의 포트(8008)에 매치되는지

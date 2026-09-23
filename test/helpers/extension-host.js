@@ -24,12 +24,24 @@ export function bundleEntry(name) {
 export const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms));
 
 // In-memory chrome.storage.sync; changePreference() behaves like another context writing to it.
+// runtime.sendMessage defaults to rejecting (nothing listens) — call setSendMessageHandler() to
+// simulate a working background script (or one that fails) without loading background.ts itself.
 export function installChromeStub(window, { preferences = {} } = {}) {
   const store = { ...preferences };
   const changeListeners = [];
   const writes = [];
+  const sentMessages = [];
+  let sendMessageHandler = async () => {
+    throw new Error('chrome.runtime.sendMessage: no handler configured in this test');
+  };
   window.chrome = {
-    runtime: { getURL: (p) => 'chrome-extension://test' + p },
+    runtime: {
+      getURL: (p) => 'chrome-extension://test' + p,
+      sendMessage: async (message) => {
+        sentMessages.push(message);
+        return sendMessageHandler(message);
+      },
+    },
     storage: {
       sync: {
         get: async () => ({ ...store }),
@@ -50,7 +62,10 @@ export function installChromeStub(window, { preferences = {} } = {}) {
     }
     changeListeners.forEach((fn) => fn(changes, 'sync'));
   }
-  return { store, writes, changePreference };
+  function setSendMessageHandler(fn) {
+    sendMessageHandler = fn;
+  }
+  return { store, writes, changePreference, sentMessages, setSendMessageHandler };
 }
 
 function polyfillInnerText(window) {

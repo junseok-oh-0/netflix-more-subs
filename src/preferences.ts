@@ -6,6 +6,10 @@ export interface Preferences {
   originaltext_opacity: number;
   text_color: string;
   originaltext_color: string;
+  translator: 'browser' | 'local';
+  sourceLang: string;
+  targetLang: string;
+  localServerUrl: string;
 }
 
 export type PreferenceKey = keyof Preferences;
@@ -18,6 +22,10 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   originaltext_opacity: 1,
   text_color: '#FFFFFF',
   originaltext_color: '#fff000',
+  translator: 'browser',
+  sourceLang: 'eng_Latn',
+  targetLang: 'kor_Hang',
+  localServerUrl: 'http://127.0.0.1:8008',
 });
 
 const PREFERENCE_KEYS = Object.keys(DEFAULT_PREFERENCES) as PreferenceKey[];
@@ -29,6 +37,28 @@ const NUMBER_RANGES: Record<string, readonly [number, number]> = {
 };
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+// FLORES-200 shape: 3-letter language + underscore + 4-letter script, e.g. "eng_Latn".
+const LANG_CODE = /^[a-z]{3}_[A-Z][a-z]{3}$/;
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+// Every string-typed key must have an entry here, or normalizeValue silently rejects it (falls
+// back to the default) — there is no other place a new string preference's format is checked.
+const STRING_VALIDATORS: Record<string, (value: string) => boolean> = {
+  text_color: (v) => HEX_COLOR.test(v),
+  originaltext_color: (v) => HEX_COLOR.test(v),
+  translator: (v) => v === 'browser' || v === 'local',
+  sourceLang: (v) => LANG_CODE.test(v),
+  targetLang: (v) => LANG_CODE.test(v),
+  localServerUrl: (v) => isHttpUrl(v),
+};
 
 export function isPreferenceKey(key: string): key is PreferenceKey {
   return key in DEFAULT_PREFERENCES;
@@ -48,7 +78,9 @@ export function normalizeValue<K extends PreferenceKey>(key: K, value: unknown):
     const ok = typeof n === 'number' && Number.isFinite(n) && n >= min && n <= max;
     return (ok ? n : fallback) as Preferences[K];
   }
-  return (typeof value === 'string' && HEX_COLOR.test(value) ? value : fallback) as Preferences[K];
+  const validate = STRING_VALIDATORS[key];
+  const ok = validate != null && typeof value === 'string' && validate(value);
+  return (ok ? value : fallback) as Preferences[K];
 }
 
 export function normalizePreferences(raw: unknown): Preferences {

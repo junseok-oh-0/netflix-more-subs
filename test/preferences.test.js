@@ -62,6 +62,36 @@ describe('normalizePreferences', () => {
       Object.keys(DEFAULT_PREFERENCES),
     );
   });
+
+  it('accepts a valid translator engine and rejects anything else', () => {
+    expect(normalizePreferences({ translator: 'local' }).translator).toBe('local');
+    expect(normalizePreferences({ translator: 'browser' }).translator).toBe('browser');
+    expect(normalizePreferences({ translator: 'nllb' }).translator).toBe('browser');
+    expect(normalizePreferences({ translator: 1 }).translator).toBe('browser');
+  });
+
+  it('accepts FLORES-200-shaped language codes and rejects other shapes', () => {
+    expect(normalizePreferences({ sourceLang: 'jpn_Jpan', targetLang: 'zho_Hans' })).toMatchObject({
+      sourceLang: 'jpn_Jpan',
+      targetLang: 'zho_Hans',
+    });
+    expect(normalizePreferences({ sourceLang: 'japanese', targetLang: 'ZHO_HANS' })).toMatchObject({
+      sourceLang: 'eng_Latn',
+      targetLang: 'kor_Hang',
+    });
+  });
+
+  it('accepts a syntactically valid http(s) server URL and rejects other strings', () => {
+    expect(normalizePreferences({ localServerUrl: 'http://192.168.1.5:9000' }).localServerUrl).toBe(
+      'http://192.168.1.5:9000',
+    );
+    expect(normalizePreferences({ localServerUrl: 'not a url' }).localServerUrl).toBe(
+      'http://127.0.0.1:8008',
+    );
+    expect(normalizePreferences({ localServerUrl: 'ftp://127.0.0.1:8008' }).localServerUrl).toBe(
+      'http://127.0.0.1:8008',
+    );
+  });
 });
 
 describe('storage adapters', () => {
