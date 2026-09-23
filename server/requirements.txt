@@ -1,0 +1,15 @@
+# Reference pins matching ~/.venv_global on this machine (2026-09-24). That venv is shared across
+# projects and already has these installed; this file documents versions, it isn't meant to be
+# pip-installed into a fresh env unless you're setting one up from scratch.
+#
+# torch is NOT required: NLLB tokenization here uses the sentencepiece-based slow tokenizer, no
+# model forward pass happens in Python (CTranslate2 does inference in C++).
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+ctranslate2==4.8.1
+transformers==5.11.0
+sentencepiece==0.2.1
+
+# test-only
+pytest==9.1.1
+httpx==0.28.1

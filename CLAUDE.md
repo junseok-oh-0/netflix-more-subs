@@ -44,6 +44,19 @@ npm run format      # prettier
 - 사용자 결정이 필요한 것(기능 삭제, UI 변경, 의존성 추가 등)은 옵션과 권장안을 제시하고 기다린다. 결정은 `REFACTORING_PLAN.md` §0에 기록
 - 원작 코드에 있던 이상한 로직은 "왜 있었는지"를 먼저 추정해 문서에 남기고 바꾼다. 검증 수단이 없으면 유지하고 사유를 적는다 (`oldInset` 사례)
 
+## 번역 서버 (server/)
+Python/FastAPI. TS 쪽과 도구가 다르므로 별도 규칙.
+
+- venv는 `~/.venv_global` (프로젝트 전용 venv 만들지 않는다). `fastapi`, `uvicorn`, `ctranslate2`, `transformers`, `sentencepiece`, `pytest`, `httpx` 설치돼 있음
+- 모델은 저장소 밖 `~/libs/models/nllb-200-distilled-600M-int8-ct2` (커밋 금지, `.gitignore`와 무관하게 애초에 저장소 밖)
+- 테스트는 반드시 `server/`에서 실행 (`server/pyproject.toml`의 `pythonpath`가 상대 import를 해결). `cd server && ~/.venv_global/bin/python -m pytest`
+- **기본 테스트는 모델을 로드하지 않는다.** `create_app(translator=FakeTranslator())`처럼 항상 주입. 실제 모델 테스트는 `RUN_MODEL_TESTS=1`로만 (수 초 걸림)
+- `TestClient(app)`을 `with` 없이 쓰면 FastAPI `lifespan`이 실행되지 않는다 (Starlette 1.6.0 실측). "모델 로드 전" 상태를 테스트할 때 이용하고, 실수로 무거운 lifespan을 트리거하지 않도록 주의
+- CT2 `Translator`는 `intra_threads`로 이미 내부 병렬화하므로, 요청을 동시에 여러 개 처리하게 만들지 않는다 (락으로 직렬화). "더 빠르게 하려고" 락을 풀지 말 것
+- 언어 코드(FLORES-200, `eng_Latn` 형식)는 정규식으로 형식만 먼저 걸러내고, 실제 존재 여부는 토크나이저 어휘 조회로 확인한다. 200개를 하드코딩하지 않는다
+- 서버는 로컬 전용(127.0.0.1), CORS 전부 허용 — 인터넷에 노출하는 변경을 하지 않는다
+- 서버를 띄워 테스트한 뒤에는 **반드시 프로세스를 죽인다** (`pkill -f "uvicorn app:app"` 또는 PID). 켜둔 채 세션을 넘기지 않는다
+
 ## 함정 메모
 - `.player-timedtext`는 브라우즈 페이지 미리보기에도 나타난다 → `closest('.watch-video')` 없으면 세션 만들지 않음 (SM-6)
 - 자동재생은 플레이어 뷰를 유지하고 캡션 노드만 교체한다 → 감지는 캡션 노드 출현 기준 (SM-1)
