@@ -65,8 +65,17 @@ Python/FastAPI. TS 쪽과 도구가 다르므로 별도 규칙.
 - 오토 리졸브(즉시 resolve하는) mock으로는 "응답 대기 중" 상태를 테스트할 수 없다 — `await tick()` 한 번에 마이크로태스크가 이미 다 풀린다. `deferred()`(resolve를 밖에서 쥐는 Promise) 패턴을 쓴다 (`test/characterization.test.js`)
 - content→background 메시지 핸들러를 `window.eval`로 번들 실행하는 테스트에서, mock 에러 객체는 **그 window의 생성자**로 만든다 (`new bg.window.TypeError(...)`, `new TypeError(...)` 아님). `instanceof` 체크가 realm을 타기 때문 — 한 번 이걸로 테스트가 깨졌었다
 
+## E2E 테스트 브리지 — dev 전용 코드를 안전하게 넣는 법
+`chrome-extension://` 페이지(팝업)는 자동화 도구가 열 수 없고, 자동화 JS는 페이지 main world에서 돌아 `chrome.storage`(content script isolated world 전용)에 못 닿는다. 그래서 `content.ts`에 `window.postMessage` 브리지를 심어 팝업과 똑같이 `savePreference()`를 호출하게 했다 (`/netflix-smoke` 스킬, `docs/SMOKE_AUTOMATION.md`). 이 패턴을 다른 곳에도 적용할 때:
+- 게이트는 **esbuild `define`으로 주입하는 리터럴 boolean** (`__DSUBS_E2E__`, `scripts/build.mjs`)으로 한다. 프로덕션 빌드에선 `if (false)`가 되어 리스너 자체가 등록되지 않는다 — `NODE_ENV` 문자열 비교 같은 런타임 분기보다 확실하다
+- TS에서는 `declare const __DSUBS_E2E__: boolean;`으로 앰비언트 선언만 하고, 실제 값은 빌드 시점에 치환된다
+- 테스트 번들(`test/helpers/extension-host.js`의 `bundleEntry`)도 같은 `define`을 넘겨야 한다 — 안 그러면 `ReferenceError`로 기존 테스트가 전부 깨진다
+- 메시지 핸들러는 `event.source === window`로 스푸핑을 막는다. **jsdom의 진짜 `window.postMessage()`는 이 프로퍼티를 제대로 안 채운다**(버그) — 테스트에서는 `window.dispatchEvent(new MessageEvent('message', { data, origin, source: window }))`로 직접 디스패치해서 우회한다. `postMessage()` 자체를 테스트하지 말고, 리스너의 반응을 테스트한다
+- 이런 브리지를 쓴 뒤에는 **반드시 프로덕션으로 재빌드**하고 확장을 다시 로드한다. dev 빌드를 일상 사용에 남기지 않는다
+
 ## 함정 메모
 - `.player-timedtext`는 브라우즈 페이지 미리보기에도 나타난다 → `closest('.watch-video')` 없으면 세션 만들지 않음 (SM-6)
 - 자동재생은 플레이어 뷰를 유지하고 캡션 노드만 교체한다 → 감지는 캡션 노드 출현 기준 (SM-1)
 - `<br>`을 숨기는 CSS는 현재 Netflix DOM에서 효과가 없다. 원본이 두 줄이면 두 줄로 렌더된다
-- `chrome-extension://` 페이지는 claude-in-chrome 도구로 열 수 없다. 팝업 조작은 사람 손
+- `chrome-extension://` 페이지는 claude-in-chrome 도구로 열 수 없다 — 팝업 UI 자체를 조작할 순 없지만, 위 E2E 브리지로 설정 변경은 자동화 가능
+- Netflix 페이지가 드물게 `<video>`도 콘솔 로그도 없는 이상 상태에 빠진다. 탭을 새로 열거나 새로고침하면 보통 풀린다. 2~3회 재시도해도 안 풀리면 자동화 도구 쪽 문제와 실제 페이지 문제를 구분하기 어려우니 사용자에게 화면을 봐 달라고 요청한다

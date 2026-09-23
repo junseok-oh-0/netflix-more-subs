@@ -15,6 +15,9 @@ export function bundleEntry(name) {
       write: false,
       format: 'iife',
       target: 'chrome110',
+      // Matches `npm run build:dev` (scripts/build.mjs): tests exercise the dev-only E2E bridge
+      // in content.ts. Production builds define this false instead.
+      define: { __DSUBS_E2E__: 'true' },
     });
     bundleCache.set(name, result.outputFiles[0].text);
   }

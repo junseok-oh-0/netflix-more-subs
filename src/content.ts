@@ -1,8 +1,18 @@
 // Dual Subtitles for Netflix - content script entry point.
 // Wires preferences (chrome.storage) and the player watcher to one subtitle session per caption node.
 
-import { DEFAULT_PREFERENCES, loadPreferences, onPreferencesChanged } from './preferences';
+import {
+  DEFAULT_PREFERENCES,
+  isPreferenceKey,
+  loadPreferences,
+  onPreferencesChanged,
+  savePreference,
+} from './preferences';
 import type { PreferenceKey, Preferences } from './preferences';
+
+// Substituted by esbuild's `define` (scripts/build.mjs) — a hardcoded `false` in production
+// builds, so the branch below is provably dead code there, not merely disabled at runtime.
+declare const __DSUBS_E2E__: boolean;
 import { WATCH_VIDEO } from './netflix-selectors';
 import { enableRightClick } from './dom';
 import { watchPlayer } from './player-watcher';
@@ -26,6 +36,21 @@ loadPreferences()
 onPreferencesChanged(setPreference);
 
 enableRightClick();
+
+// Dev-build-only bridge so E2E automation can change settings without opening the popup (that
+// UI can't be driven by browser-automation tools since chrome-extension:// pages aren't
+// navigable). Writes go through the exact same savePreference() the popup uses, so this is a
+// real settings change, not a shortcut around the normal path.
+if (__DSUBS_E2E__) {
+  window.addEventListener('message', (event) => {
+    if (event.source !== window) return;
+    const data = event.data as { source?: string; type?: string; key?: string; value?: unknown } | null;
+    if (data?.source !== 'dsubs-e2e' || data.type !== 'set-preference' || typeof data.key !== 'string')
+      return;
+    if (!isPreferenceKey(data.key)) return;
+    savePreference(data.key, data.value);
+  });
+}
 
 watchPlayer((timedtext) => {
   // Previews on the browse page render captions outside the full player; ignore those.

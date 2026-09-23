@@ -17,6 +17,9 @@ await build({
   format: 'iife',
   target: 'chrome110',
   sourcemap: dev ? 'inline' : false,
+  // Dev-only postMessage bridge in content.ts (E2E automation writes preferences without opening
+  // the popup). Literal false in prod means the branch is provably dead code, not just disabled.
+  define: { __DSUBS_E2E__: dev ? 'true' : 'false' },
   logLevel: 'info',
 });
 

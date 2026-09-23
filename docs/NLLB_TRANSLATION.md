@@ -26,10 +26,10 @@
 - [x] Part 1: 번역 서버 구현 (`server/`) — 2026-09-24, 실서버 curl 스모크까지 확인
 - [x] CLAUDE.md에 서버 개발 유의사항 추가 — 2026-09-24
 - [x] Part 2: TS 쪽 통합 (preferences → background → subtitles → popup) — 2026-09-24
-- [x] 유닛 테스트 추가 (TS 쪽) — 2026-09-24, 68/68 통과 (서버 포함 시 전체 93/93)
-- [ ] 사용자 E2E (보류 — 사용자 입회 시 진행)
+- [x] 유닛 테스트 추가 (TS 쪽) — 2026-09-24, 73/73 통과
+- [x] **실물 Netflix E2E — 2026-09-24, 전부 통과.** 브라우저 모드 회귀 없음(설정 3라운드 전부), 로컬 모드도 실서버로 검증(원문→실제 한글 번역 교체, `translate="no"` 유지, 10회 이상 전환 성공)
 
-**코딩 완료.** 계획대로 구현되고 유닛 테스트를 전부 통과해 이 작업을 완료로 처리한다(2026-09-24). 남은 것은 사용자가 입회하는 실물 Netflix E2E뿐 — 아래 "확인 필요" 참고.
+**전부 완료.** 아래 "확인 필요"는 전부 실물에서 확인됨.
 
 ## Part 1 — 번역 서버
 
@@ -143,7 +143,7 @@ localServerUrl: string            // 기본 'http://127.0.0.1:8008', new URL()�
 팝업: 기존 `controls` 레코드(체크박스/슬라이더/컬러, 전부 `HTMLInputElement`)는 그대로 두고 `sourceLang`/`targetLang`/`localServerUrl`은 같은 패턴의 텍스트 입력으로 추가. `translator`(select)만 별도로 다룬다 — 엔진 select는 `HTMLSelectElement`라 기존 `Control` 인터페이스(`HTMLInputElement`)에 안 맞고, 로컬 설정 영역의 `hidden` 토글도 필요해서 어차피 특수 처리가 필요함. `controls` 타입을 `Record` → `Partial<Record>`로 바꿔 `translator`를 자연스럽게 빼는 방식.
 
 ### manifest.json
-`host_permissions`에 `http://127.0.0.1/*`, `http://localhost/*` 추가 (Chrome 매치 패턴은 포트를 명시하지 않으며 모든 포트에 매치됨 — MDN/Chrome 문서 기준. **E2E에서 실제 확인 필요**, 아래 "확인 필요" 참고).
+`host_permissions`에 `http://127.0.0.1/*`, `http://localhost/*` 추가 (Chrome 매치 패턴은 포트를 명시하지 않으며 모든 포트에 매치됨 — MDN/Chrome 문서 기준. **2026-09-24 E2E에서 실제 8008 포트로 확인됨**, 아래 "E2E 결과" 참고).
 
 ### 구현 결과 (2026-09-24)
 - `preferences.ts`: 문자열 타입 정규화를 키별 `STRING_VALIDATORS` 맵으로 일반화. `translator`/`sourceLang`/`targetLang`/`localServerUrl` 4개 키 추가
@@ -166,14 +166,22 @@ localServerUrl: string            // 기본 'http://127.0.0.1:8008', new URL()�
 - `test/popup.test.js` — 기본값/저장값 렌더링, hidden 토글, 저장 (4개, 신규 `describe`)
 - `test/helpers/extension-host.js` — `installChromeStub`에 `runtime.sendMessage` + `setSendMessageHandler` 추가 (기본은 reject)
 
-최종: TS 쪽 `npm test` 68/68 (8개 파일). 서버 쪽 `pytest` 25/25(+`RUN_MODEL_TESTS=1`이면 17개 추가). lint 0, typecheck 0, prettier 통과, 빌드 정상(content 17.3kb, popup 5.7kb, background 1.3kb).
+최종: TS 쪽 `npm test` 73/73 (8개 파일, E2E 브리지 테스트 4개 포함). 서버 쪽 `pytest` 25/25(+`RUN_MODEL_TESTS=1`이면 17개 추가). lint 0, typecheck 0, prettier 통과, 빌드 정상(prod: content 17.7kb, popup 5.7kb, background 1.3kb).
 
-## 확인 필요 (E2E에서 사용자가 검증)
-- [ ] `host_permissions`의 포트 없는 패턴이 실제로 임의 포트(8008)에 매치되는지
-- [ ] background 서비스 워커에서 로컬 서버로 fetch가 CSP/네트워크 정책에 막히지 않는지
-- [ ] 번역 지연(첫 요청 워밍업 포함)이 자막 흐름에서 체감되는 수준인지
-- [ ] 로컬 모드에서 브라우저 번역기가 동시에 켜져 있어도 이중 번역이 안 되는지 (미러 `translate="no"`로 방지했다고 가정)
+## E2E 결과 (2026-09-24) — 전부 통과
+자동화 방법은 `docs/SMOKE_AUTOMATION.md`의 "E2E 테스트 브리지"(dev 빌드 전용 `window.postMessage` → `chrome.storage` 브리지) 참고. 사람 개입은 dev 빌드 로드 시 확장 리로드 1회뿐, 이후 설정 변경까지 전부 자동.
+
+| 확인 항목 | 결과 |
+|---|---|
+| `host_permissions`의 포트 없는 패턴이 임의 포트(8008)에 매치되는지 | ✅ background fetch가 실제로 `http://127.0.0.1:8008/translate`에 도달함 (매치 정상) |
+| background 서비스 워커→로컬 서버 fetch가 CSP/네트워크 정책에 막히지 않는지 | ✅ 막히지 않음. content script를 거쳐가는 설계(로드맵 결정)가 유효했음 |
+| 번역 지연이 자막 흐름에서 체감되는 수준인지 | ✅ 원문 표시 후 약 300ms 내 번역 교체, 10회 이상 연속 전환에서 밀림/끊김 없음 |
+| 로컬 모드에서 이중 번역이 안 되는지 | ✅ `translate="no"`가 전체 구간에서 유지됨 |
+
+**추가로 발견/수정한 것**: 실물 스모크 중 `scripts/smoke/page-checks.js`(검사 스크립트, 제품 코드 아님)가 "Dual Subtitles OFF" 상태를 고려하지 않아 A3/A4/B1-B4/E-font-multiplier에서 오탐(false failure)이 발생했다. 원인은 미러가 꺼지면 비교 대상이 없어지는데 검사가 이를 몰랐던 것 — **제품 버그 아님**. `dualSubsOff` 감지를 추가해 수정, 회귀 테스트 추가(`test/page-checks.test.js`). 상세: `docs/SMOKE_AUTOMATION.md`.
+
+미검증 항목(자동화 범위 밖, 낮은 우선순위): 브라우저 완전 재시작 후 설정 유지, Edge 브라우저.
 
 ## 다음에 볼 것
-- `docs/ROADMAP.md` — 이 작업이 끝나면 갱신
-- `CLAUDE.md` — 서버 개발 유의사항 섹션
+- `docs/ROADMAP.md` — 갱신 완료
+- `CLAUDE.md` — 서버 개발 유의사항 + 로컬 번역 통합 패턴 + E2E 브리지 패턴 섹션

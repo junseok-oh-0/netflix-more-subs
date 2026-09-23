@@ -289,6 +289,52 @@ describe('content script on the fake player', () => {
     });
   });
 
+  describe('E2E test bridge (dev builds only)', () => {
+    // jsdom's real window.postMessage() doesn't populate event.source/origin the way browsers
+    // do, so tests dispatch a MessageEvent directly — this still exercises the same
+    // `event.source !== window` guard the production code relies on.
+    function postFromPage(host, data) {
+      host.window.dispatchEvent(
+        new host.window.MessageEvent('message', {
+          data,
+          origin: host.window.location.origin,
+          source: host.window,
+        }),
+      );
+    }
+
+    it('writes a preference via chrome.storage when sent a dsubs-e2e message', async () => {
+      postFromPage(host, { source: 'dsubs-e2e', type: 'set-preference', key: 'on_off', value: false });
+      await tick();
+      expect(host.chrome.writes).toContainEqual({ on_off: false });
+    });
+
+    it('ignores messages without the dsubs-e2e marker', async () => {
+      postFromPage(host, { type: 'set-preference', key: 'on_off', value: false });
+      await tick();
+      expect(host.chrome.writes).toEqual([]);
+    });
+
+    it('ignores an unknown preference key', async () => {
+      postFromPage(host, { source: 'dsubs-e2e', type: 'set-preference', key: 'not_a_real_key', value: 1 });
+      await tick();
+      expect(host.chrome.writes).toEqual([]);
+    });
+
+    it('ignores a message whose source is not this window', async () => {
+      const other = {};
+      host.window.dispatchEvent(
+        new host.window.MessageEvent('message', {
+          data: { source: 'dsubs-e2e', type: 'set-preference', key: 'on_off', value: false },
+          origin: host.window.location.origin,
+          source: other,
+        }),
+      );
+      await tick();
+      expect(host.chrome.writes).toEqual([]);
+    });
+  });
+
   it('lets the context menu through Netflix’s suppression so the translator can be opened', async () => {
     await startPlayback(host);
     const video = host.document.querySelector('#video-canvas video');
