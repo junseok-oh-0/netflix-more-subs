@@ -2,6 +2,7 @@ export interface Preferences {
   on_off: boolean;
   button_up_down_mode: boolean;
   font_multiplier: number;
+  originalFontMultiplier: number;
   opacity: number;
   originaltext_opacity: number;
   text_color: string;
@@ -18,6 +19,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   on_off: true,
   button_up_down_mode: true,
   font_multiplier: 1,
+  originalFontMultiplier: 1,
   opacity: 0.8,
   originaltext_opacity: 1,
   text_color: '#FFFFFF',
@@ -32,6 +34,7 @@ const PREFERENCE_KEYS = Object.keys(DEFAULT_PREFERENCES) as PreferenceKey[];
 
 const NUMBER_RANGES: Record<string, readonly [number, number]> = {
   font_multiplier: [0.2, 2],
+  originalFontMultiplier: [0.2, 2],
   opacity: [0, 1],
   originaltext_opacity: [0, 1],
 };

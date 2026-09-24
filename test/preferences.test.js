@@ -27,10 +27,18 @@ describe('normalizePreferences', () => {
   });
 
   it('parses numeric strings from range inputs', () => {
-    expect(normalizePreferences({ font_multiplier: '1.5', opacity: '0.3' })).toMatchObject({
+    expect(
+      normalizePreferences({ font_multiplier: '1.5', originalFontMultiplier: '0.8', opacity: '0.3' }),
+    ).toMatchObject({
       font_multiplier: 1.5,
+      originalFontMultiplier: 0.8,
       opacity: 0.3,
     });
+  });
+
+  it('rejects an out-of-range originalFontMultiplier', () => {
+    expect(normalizePreferences({ originalFontMultiplier: 5 }).originalFontMultiplier).toBe(1);
+    expect(normalizePreferences({ originalFontMultiplier: 0 }).originalFontMultiplier).toBe(1);
   });
 
   it('keeps zero opacity instead of treating it as missing', () => {

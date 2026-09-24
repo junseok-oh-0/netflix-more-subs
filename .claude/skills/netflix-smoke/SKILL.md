@@ -157,13 +157,28 @@ const r = window.__dsubsCheck(document, { mirrorColor: 'rgb(255, 0, 0)', fontMul
 | Round | Set | Verify with |
 |---|---|---|
 | 1 | `text_color='#FF0000'`, `originaltext_color='#00FF00'`, `font_multiplier='1.5'`, `on_off=false` | `{ mirrorColor: 'rgb(255, 0, 0)', fontMultiplier: 1.5, hidden: true }` (no `originalColor` — off forces it white, that's correct) |
-| 2 | `on_off=true`, `button_up_down_mode=false` | `{ hidden: false, mode: 'side-by-side' }` |
-| 3 | `button_up_down_mode=true`, then reset the appearance keys individually: `font_multiplier=1`, `opacity=0.8`, `originaltext_opacity=1`, `text_color='#FFFFFF'`, `originaltext_color='#fff000'` | `{ mirrorColor: 'rgb(255, 255, 255)', originalColor: 'rgb(255, 240, 0)', fontMultiplier: 1, mirrorOpacity: 0.8, mode: 'stacked' }` |
+| 2 | `on_off=true`, `button_up_down_mode=false`, `originalFontMultiplier='1.5'` | `{ hidden: false, mode: 'side-by-side' }` + `originalFontMultiplier` check below (`E font multiplier` doesn't cover this — see note) |
+| 3 | `button_up_down_mode=true`, then reset the appearance keys individually: `font_multiplier=1`, `originalFontMultiplier=1`, `opacity=0.8`, `originaltext_opacity=1`, `text_color='#FFFFFF'`, `originaltext_color='#fff000'` | `{ mirrorColor: 'rgb(255, 255, 255)', originalColor: 'rgb(255, 240, 0)', fontMultiplier: 1, mirrorOpacity: 0.8, mode: 'stacked' }` |
 
 Note: `on_off`/`button_up_down_mode` don't have a "reset" — the popup's Reset button only touches
 appearance, matched above by setting each key back individually. Values sent through
 `__dsubsSet` go through the same `normalizeValue()` as the popup, so type coercion (e.g. `'1.5'` →
 `1.5`) works the same way.
+
+**`originalFontMultiplier` isn't covered by `E font multiplier`** — that check compares the mirror
+to the original's *currently rendered* size, which is itself already scaled by
+`originalFontMultiplier` once this feature is in play, so the formula only holds when it's at the
+default (`1`). To verify the original's own size actually changed, compare the style snapshot
+before and after instead:
+```js
+const before = window.__dsubsCheck(document).checks.find(c => c.id.startsWith('S ')).detail.originalFontPx;
+window.__dsubsSet('originalFontMultiplier', '1.5');
+await new Promise(r => setTimeout(r, 500));
+const after = window.__dsubsCheck(document).checks.find(c => c.id.startsWith('S ')).detail.originalFontPx;
+({ before, after, ratio: after / before })
+```
+`ratio` should be ≈1.5. Also confirm the translated line's placement followed (didn't overlap) — its
+position depends on the original's measured box, which just changed size.
 
 ### 7. Local translation mode (only if the user has the server running)
 Ask first — don't start the server yourself. If it's up:

@@ -2,6 +2,7 @@ import { DEFAULT_PREFERENCES, loadPreferences, savePreference, savePreferences }
 import type { PreferenceKey, Preferences } from './preferences';
 
 const STYLE_KEYS: PreferenceKey[] = [
+  'originalFontMultiplier',
   'font_multiplier',
   'opacity',
   'originaltext_opacity',
@@ -37,6 +38,12 @@ async function init(): Promise<void> {
   const controls: Partial<Record<PreferenceKey, Control>> = {
     on_off: { el: input('switchValue'), prop: 'checked', event: 'change' },
     button_up_down_mode: { el: input('button_upDownValue'), prop: 'checked', event: 'change' },
+    originalFontMultiplier: {
+      el: input('originalSizeSlider'),
+      prop: 'value',
+      event: 'change',
+      label: byId('originalSizeSliderValue'),
+    },
     font_multiplier: { el: input('mySlider'), prop: 'value', event: 'change', label: byId('mySliderValue') },
     originaltext_opacity: {
       el: input('originalOpacitySlider'),

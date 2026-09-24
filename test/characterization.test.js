@@ -48,6 +48,79 @@ describe('content script on the fake player', () => {
     expect(el.getAttribute('translate')).toBeNull();
   });
 
+  // Side-by-side mode here, deliberately: stacked mode also runs shrinkOriginalToFit, and jsdom's
+  // zero layout (offsetWidth 0, clientWidth 0) makes its overflow check always true, shrinking to
+  // the 8px floor regardless of originalFontMultiplier — a jsdom limitation, not a real one (see
+  // fakeRects-based placement tests below for how other tests work around the same gap). These
+  // three only need to confirm the scaling math and preference wiring, which side-by-side isolates.
+  it('leaves the original subtitle at its native size when originalFontMultiplier is 1 (default)', async () => {
+    host = await loadExtension({ preferences: { button_up_down_mode: false } });
+    await startPlayback(host);
+    host.player.showSubtitle(['x']);
+    await tick();
+    const span = host.document.querySelector('.player-timedtext-text-container [style*="font-size"]');
+    expect(span.style.fontSize).toBe('32px'); // fixture's native size
+  });
+
+  it('scales the original subtitle by originalFontMultiplier', async () => {
+    host = await loadExtension({
+      preferences: { button_up_down_mode: false, originalFontMultiplier: 1.5 },
+    });
+    await startPlayback(host);
+    host.player.showSubtitle(['x']);
+    await tick();
+    const span = host.document.querySelector('.player-timedtext-text-container [style*="font-size"]');
+    expect(span.style.fontSize).toBe('48px'); // 32 * 1.5
+  });
+
+  it('re-scales the original subtitle immediately when the preference changes', async () => {
+    host = await loadExtension({ preferences: { button_up_down_mode: false } });
+    await startPlayback(host);
+    host.player.showSubtitle(['x']);
+    await tick();
+    host.chrome.changePreference('originalFontMultiplier', 2);
+    const span = host.document.querySelector('.player-timedtext-text-container [style*="font-size"]');
+    expect(span.style.fontSize).toBe('64px'); // 32 * 2, no new subtitle event needed
+  });
+
+  // Disables both shrink-to-fit loops (shrinkOriginalToFit and shrinkContainerToFit) uniformly, so
+  // exact font-size values are meaningful — otherwise jsdom's zero layout (offsetWidth/clientWidth
+  // always 0) makes their overflow checks always true and everything floors to 8px regardless of
+  // correctness.
+  function fakeNoOverflow(host) {
+    const proto = host.window.HTMLElement.prototype;
+    Object.defineProperty(proto, 'offsetWidth', { configurable: true, get: () => 100 });
+    Object.defineProperty(proto, 'clientWidth', { configurable: true, get: () => 1000 });
+  }
+
+  it('does not compound the original or translated size across repeated non-resize style refreshes (regression)', async () => {
+    // Reported bug: dragging the Original Text Size slider made the translated line grow/shrink
+    // along with it. Root cause: onResize() fires on essentially every style refresh of
+    // .player-timedtext, not just genuine resizes (oldInset is captured once at session start and
+    // never updated), and it used to re-read the original's font-size unconditionally — picking up
+    // our own previous scaled write and feeding it back in as "native", compounding the multiplier
+    // on both the original and the mirror (which derives its size from the same s.baseFont).
+    host = await loadExtension({ preferences: { originalFontMultiplier: 2, font_multiplier: 1.5 } });
+    fakeNoOverflow(host);
+    await startPlayback(host);
+    host.player.showSubtitle(['x']);
+    await tick();
+
+    const origSpan = () =>
+      host.document.querySelector('.player-timedtext-text-container [style*="font-size"]');
+    expect(origSpan().style.fontSize).toBe('64px'); // 32 native * 2
+    expect(mine(host).style.fontSize).toBe('48px'); // 32 native * 1.5, independent of originalFontMultiplier
+
+    // setInset alone doesn't touch font-size, so this simulates the spurious non-resize firings.
+    host.player.setInset(10);
+    await tick();
+    host.player.setInset(20);
+    await tick();
+
+    expect(origSpan().style.fontSize).toBe('64px');
+    expect(mine(host).style.fontSize).toBe('48px');
+  });
+
   it('gives the mirror a thin black outline for readability over busy backgrounds', async () => {
     await startPlayback(host);
     const el = mine(host);

@@ -48,6 +48,9 @@ export interface SubtitleSession {
 interface SessionState {
   container: HTMLElement;
   baseFont: number;
+  // Last font-size (px) we wrote onto the original's span(s). Lets onResize tell "Netflix changed
+  // the native size" apart from "this is just my own previous scaled write" — see readNativeBaseFont.
+  lastWrittenOriginalPx: number;
   currentSize: string;
   lastSubs: string;
   oldInset: string;
@@ -88,6 +91,7 @@ export function createSubtitleSession(
   const s: SessionState = {
     container,
     baseFont: NaN,
+    lastWrittenOriginalPx: NaN,
     currentSize: '',
     lastSubs: '',
     oldInset: timedtext.style.inset,
@@ -162,7 +166,7 @@ export function createSubtitleSession(
     const orig = original();
     // Ensures subs were added rather than removed, probably redundant
     if (orig != null && prefs.on_off) {
-      s.baseFont = readBaseFont(timedtext, s.baseFont);
+      s.baseFont = readNativeBaseFont();
       if (timedtext.childElementCount > 1) mergeContainers();
 
       orig.setAttribute('style', stacked() ? ORIGINAL_STACKED_STYLE : ORIGINAL_SIDE_STYLE);
@@ -177,6 +181,7 @@ export function createSubtitleSession(
       }
       s.currentSize = s.baseFont * prefs.font_multiplier + 'px';
 
+      applyOriginalFontSize(orig);
       if (stacked()) shrinkOriginalToFit(orig);
       placeContainer(orig);
 
@@ -211,18 +216,51 @@ export function createSubtitleSession(
       });
   }
 
-  // Netflix constantly refreshes the text, so styles have to be reapplied after a resize.
+  // Netflix constantly refreshes the text, so styles have to be reapplied after a resize. Note
+  // this fires far more often than genuine resizes (see the oldInset comment above onResize's
+  // caller) — readNativeBaseFont() is what keeps that from corrupting the size.
   function onResize(): void {
     // Spoofs the Edge translator into skipping, since the translate attribute doesn't work there
     for (const child of timedtext.children) child.setAttribute('_istranslated', '1');
     if (timedtext.childElementCount > 1) mergeContainers();
 
-    // Font size changes often, so re-read the base font on every resize
-    s.baseFont = readBaseFont(timedtext, s.baseFont);
+    s.baseFont = readNativeBaseFont();
     s.currentSize = s.baseFont * prefs.font_multiplier + 'px';
     updateStyle('font_size');
     const orig = original();
-    if (orig) placeContainer(orig);
+    if (orig) {
+      applyOriginalFontSize(orig);
+      placeContainer(orig);
+    }
+  }
+
+  // onResize fires on essentially every style refresh of `timedtext`, not just real resizes
+  // (oldInset is never updated after session start, so the inequality it's gated on stays true
+  // forever after the first genuine resize). Most of those firings are no-ops from Netflix's side:
+  // the original's font-size is still exactly what we last wrote via applyOriginalFontSize —
+  // reading it back naively would feed our own scaled output into `s.baseFont` as if it were
+  // native, compounding the multiplier every time this fires (this was a real, reported bug: the
+  // translated line's size grew/shrank along with the original one). Only trust a fresh DOM read
+  // as "native" when it differs from what we last wrote — that difference means Netflix actually
+  // changed it (e.g. a real window resize), not us.
+  function readNativeBaseFont(): number {
+    const current = readBaseFont(timedtext, s.baseFont);
+    if (!Number.isNaN(s.lastWrittenOriginalPx) && Math.abs(current - s.lastWrittenOriginalPx) < 0.5) {
+      return s.baseFont; // unchanged since our last write; current is just that write echoed back
+    }
+    return current;
+  }
+
+  // The size the original's font should render at: the native size (s.baseFont) scaled by the
+  // user's preference.
+  function scaledOriginalFontPx(): number {
+    return s.baseFont * prefs.originalFontMultiplier;
+  }
+
+  function applyOriginalFontSize(orig: HTMLElement): void {
+    const px = scaledOriginalFontPx();
+    for (const el of styledTextElements(orig)) el.style.fontSize = px + 'px';
+    s.lastWrittenOriginalPx = px;
   }
 
   // Stacked: hang from the original's measured bottom edge, so its line count never matters.
@@ -240,12 +278,14 @@ export function createSubtitleSession(
     }
   }
 
-  // In Edge shrinking triggers translation, hence the notranslate on every span.
+  // In Edge shrinking triggers translation, hence the notranslate on every span. Starts from the
+  // already-applied scaled size (applyOriginalFontSize runs first), not the raw native baseFont,
+  // so the user's original-size preference is the ceiling shrinking works down from.
   function shrinkOriginalToFit(orig: HTMLElement): void {
     const targets = styledTextElements(orig);
     if (!targets.length) return;
     fitFontSize(
-      s.baseFont,
+      scaledOriginalFontPx(),
       () => overflowsParent(orig, 150),
       (px) => {
         if (IS_EDGE && orig.firstElementChild) orig.firstElementChild.className += ' notranslate';
@@ -253,6 +293,7 @@ export function createSubtitleSession(
           if (IS_EDGE) el.className += ' notranslate';
           el.style.fontSize = px + 'px';
         }
+        s.lastWrittenOriginalPx = px; // keep readNativeBaseFont's "did Netflix change it" check honest
       },
     );
   }
@@ -339,6 +380,15 @@ export function createSubtitleSession(
         s.currentSize = s.baseFont * prefs.font_multiplier + 'px';
         updateStyle('font_size');
         break;
+      case 'originalFontMultiplier': {
+        const orig = original();
+        if (orig) {
+          applyOriginalFontSize(orig);
+          if (stacked()) shrinkOriginalToFit(orig);
+          placeContainer(orig);
+        }
+        break;
+      }
       case 'text_color':
       case 'originaltext_color':
         updateStyle('text_color');

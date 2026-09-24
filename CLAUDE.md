@@ -74,6 +74,8 @@ Python/FastAPI. TS 쪽과 도구가 다르므로 별도 규칙.
 - 이런 브리지를 쓴 뒤에는 **반드시 프로덕션으로 재빌드**하고 확장을 다시 로드한다. dev 빌드를 일상 사용에 남기지 않는다
 
 ## 함정 메모
+- **"Netflix가 원본 span의 inline 스타일을 재렌더링마다 덮어쓴다"는 가정을 믿지 말 것 — 실측 결과 사실이 아니었다.** `onResize()`는 `oldInset`이 세션 시작 후 갱신되지 않는 기존 버그 때문에 진짜 리사이즈가 아닌 스타일 갱신에도 계속 발동하는데, 그런 발동에서는 Netflix가 폰트 크기를 건드리지 않고 **우리가 지난번에 쓴 값이 그대로 남아 있다.** `readBaseFont`로 그 값을 "네이티브"로 다시 읽으면 `s.baseFont`가 오염되고, 거길 베이스로 쓰는 미러 크기까지 같이 커지는(호출마다 배가되는) 실사용 버그가 났다(`originalFontMultiplier` 도입 직후 발견). 고친 방법: `s.lastWrittenOriginalPx`에 우리가 마지막으로 쓴 값을 기록해 두고, DOM에서 읽은 값이 그 값과 같으면(=Netflix가 안 바꿈) 새로 읽지 않고 기존 `s.baseFont`를 유지한다(`readNativeBaseFont()`). 원본 쪽에 "우리가 쓴 스타일을 다시 읽어서 배율에 곱하는" 코드를 추가할 때는 항상 이 self-write 감지 패턴을 쓴다 — "먼저 읽고 나중에 쓴다"는 순서만으로는 **같은 노드에 두 번째로 진입하는 호출**(예: onResize의 반복 발동)을 막지 못한다
+- jsdom은 레이아웃이 없어 `offsetWidth`/`clientWidth`가 항상 0이다. `overflowsParent(el, margin)`은 `0 > 0-margin`이 항상 참이 되어 **스택 모드의 오버플로 축소가 테스트에서 항상 발동**한다(폰트가 8px 바닥까지 줄어듦). 폰트 크기 값을 정확히 검증하는 테스트는 좌우 모드(`button_up_down_mode:false`)를 쓰거나 `getBoundingClientRect`를 `fakeRects`처럼 오버라이드한다
 - `.player-timedtext`는 브라우즈 페이지 미리보기에도 나타난다 → `closest('.watch-video')` 없으면 세션 만들지 않음 (SM-6)
 - 자동재생은 플레이어 뷰를 유지하고 캡션 노드만 교체한다 → 감지는 캡션 노드 출현 기준 (SM-1)
 - `<br>`을 숨기는 CSS는 현재 Netflix DOM에서 효과가 없다. 원본이 두 줄이면 두 줄로 렌더된다

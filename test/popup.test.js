@@ -44,6 +44,7 @@ describe('popup', () => {
     expect(d.getElementById('mySliderValue').textContent).toBe('1.5');
     expect(d.getElementById('myColorPicker').value).toBe('#123456');
     expect(d.getElementById('opacitySlider').value).toBe('0.8');
+    expect(d.getElementById('originalSizeSlider').value).toBe('1');
   });
 
   it('writes a changed control straight to storage', () => {
@@ -52,6 +53,12 @@ describe('popup', () => {
     slider.dispatchEvent(new popup.window.Event('change'));
     expect(popup.chrome.storage.sync.set).toHaveBeenCalledWith({ font_multiplier: 0.7 });
     expect(popup.document.getElementById('mySliderValue').textContent).toBe('0.7');
+
+    const originalSizeSlider = popup.document.getElementById('originalSizeSlider');
+    originalSizeSlider.value = '1.3';
+    originalSizeSlider.dispatchEvent(new popup.window.Event('change'));
+    expect(popup.chrome.storage.sync.set).toHaveBeenCalledWith({ originalFontMultiplier: 1.3 });
+    expect(popup.document.getElementById('originalSizeSliderValue').textContent).toBe('1.3');
 
     const toggle = popup.document.getElementById('switchValue');
     toggle.checked = true;
@@ -64,12 +71,14 @@ describe('popup', () => {
     await tick();
     expect(popup.chrome.storage.sync.set).toHaveBeenCalledWith({
       font_multiplier: 1,
+      originalFontMultiplier: 1,
       opacity: 0.8,
       originaltext_opacity: 1,
       text_color: '#FFFFFF',
       originaltext_color: '#fff000',
     });
     expect(popup.document.getElementById('mySlider').value).toBe('1');
+    expect(popup.document.getElementById('originalSizeSlider').value).toBe('1');
     expect(popup.document.getElementById('myColorPicker').value).toBe('#ffffff');
     expect(popup.document.getElementById('switchValue').checked).toBe(false);
   });
