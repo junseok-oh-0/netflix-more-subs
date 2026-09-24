@@ -61,7 +61,7 @@ describe('normalizePreferences', () => {
   it('accepts #rrggbb colors in any case and rejects anything else', () => {
     expect(normalizePreferences({ text_color: '#AbCdEf', originaltext_color: 'yellow' })).toMatchObject({
       text_color: '#AbCdEf',
-      originaltext_color: '#fff000',
+      originaltext_color: '#9bbad4',
     });
   });
 

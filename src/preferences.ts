@@ -23,7 +23,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   opacity: 0.8,
   originaltext_opacity: 1,
   text_color: '#FFFFFF',
-  originaltext_color: '#fff000',
+  originaltext_color: '#9bbad4',
   translator: 'browser',
   sourceLang: 'eng_Latn',
   targetLang: 'kor_Hang',

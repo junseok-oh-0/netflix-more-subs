@@ -166,7 +166,7 @@ const r = window.__dsubsCheck(document, { mirrorColor: 'rgb(255, 0, 0)', fontMul
 |---|---|---|
 | 1 | `text_color='#FF0000'`, `originaltext_color='#00FF00'`, `font_multiplier='1.5'`, `on_off=false` | `{ mirrorColor: 'rgb(255, 0, 0)', fontMultiplier: 1.5, hidden: true }` (no `originalColor` — off forces it white, that's correct) |
 | 2 | `on_off=true`, `button_up_down_mode=false`, `originalFontMultiplier='1.5'` | `{ hidden: false, mode: 'side-by-side' }` + `originalFontMultiplier` check below (`E font multiplier` doesn't cover this — see note) |
-| 3 | `button_up_down_mode=true`, then reset the appearance keys individually: `font_multiplier=1`, `originalFontMultiplier=1`, `opacity=0.8`, `originaltext_opacity=1`, `text_color='#FFFFFF'`, `originaltext_color='#fff000'` | `{ mirrorColor: 'rgb(255, 255, 255)', originalColor: 'rgb(255, 240, 0)', fontMultiplier: 1, mirrorOpacity: 0.8, mode: 'stacked' }` |
+| 3 | `button_up_down_mode=true`, then reset the appearance keys individually: `font_multiplier=1`, `originalFontMultiplier=1`, `opacity=0.8`, `originaltext_opacity=1`, `text_color='#FFFFFF'`, `originaltext_color='#9bbad4'` | `{ mirrorColor: 'rgb(255, 255, 255)', originalColor: 'rgb(155, 186, 212)', fontMultiplier: 1, mirrorOpacity: 0.8, mode: 'stacked' }` |
 
 Note: `on_off`/`button_up_down_mode` don't have a "reset" — the popup's Reset button only touches
 appearance, matched above by setting each key back individually. Values sent through

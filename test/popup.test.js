@@ -75,7 +75,7 @@ describe('popup', () => {
       opacity: 0.8,
       originaltext_opacity: 1,
       text_color: '#FFFFFF',
-      originaltext_color: '#fff000',
+      originaltext_color: '#9bbad4',
     });
     expect(popup.document.getElementById('mySlider').value).toBe('1');
     expect(popup.document.getElementById('originalSizeSlider').value).toBe('1');
