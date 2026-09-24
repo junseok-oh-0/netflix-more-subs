@@ -1,6 +1,9 @@
-# 로컬 NLLB 번역 — 작업 일지 겸 사용법
+# 로컬 NLLB 번역 — 작업 일지
 
 `docs/ROADMAP.md`의 "브라우저 번역기 대체" 작업 기록. 이 문서가 마스터 상태 파일이다 — 새 세션에서 이어갈 때는 이 문서의 "진행 상태"부터 읽는다.
+
+**설치·설정·사용법·API는 여기 없다.** 모델 변환, 의존성, 환경변수, 엔드포인트는 전부
+[server/README.md](../server/README.md)에 있다. 이 문서는 설계 결정과 작업 기록만 남긴다.
 
 ## 목표
 브라우저 내장 번역기(우클릭 메뉴) 대신, 로컬에서 도는 NLLB 번역 서버가 자막을 직접 번역한다.
@@ -40,64 +43,11 @@ server/
   translator.py    # NLLB 로드 + translate_batch()
   config.py        # 환경변수 기반 설정
   requirements.txt # 참고용 버전 고정 (venv는 이미 설치돼 있음)
-  README.md        # 이 문서(NLLB_TRANSLATION.md)로 링크만
+  README.md        # 설치·설정·사용법·API (마스터 문서)
   tests/
     test_translator.py  # 언어 코드 검증 등 순수 로직
     test_app.py          # FastAPI TestClient, translator는 mock
 ```
-
-### 사용법
-사전 조건: `~/.venv_global`에 `fastapi`, `uvicorn`, `ctranslate2`, `transformers`, `sentencepiece` 설치돼 있음(이미 확인됨). 모델은 `~/libs/models/nllb-200-distilled-600M-int8-ct2`에 있어야 함(없으면 `NLLB_MODEL_DIR` 환경변수로 다른 경로 지정).
-
-기동:
-```bash
-source ~/.venv_global/bin/activate
-cd server
-python -m uvicorn app:app --host 127.0.0.1 --port 8008
-```
-또는 `./server/run.sh` (아래 스크립트, venv 활성화까지 포함).
-
-환경변수(전부 선택, 기본값은 `config.py` 참고):
-| 변수 | 기본값 | 설명 |
-|---|---|---|
-| `NLLB_MODEL_DIR` | `~/libs/models/nllb-200-distilled-600M-int8-ct2` | CTranslate2 변환 모델 디렉터리 |
-| `NLLB_TOKENIZER_ID` | `facebook/nllb-200-distilled-600M` | 토크나이저 HF ID |
-| `NLLB_COMPUTE_TYPE` | `int8` | CT2 연산 정밀도 |
-| `NLLB_INTRA_THREADS` | `8` | CT2 내부 스레드 수 |
-| `NLLB_DEVICE` | `cpu` | `cpu` 또는 `cuda` |
-| `NLLB_MAX_BATCH` | `16` | 요청당 최대 문장 수 |
-| `NLLB_MAX_TEXT_LEN` | `500` | 문장당 최대 문자 수 |
-| `SERVER_HOST` | `127.0.0.1` | |
-| `SERVER_PORT` | `8008` | |
-
-엔드포인트:
-```
-GET /health
-  -> 200 {"status":"ok","model_loaded":true,"device":"cpu","compute_type":"int8"}
-
-POST /translate
-  body: {"texts":["Hello, world."],"source_lang":"eng_Latn","target_lang":"kor_Hang"}
-  -> 200 {"translations":["안녕, 세상."]}
-  -> 422 (pydantic 검증 실패: 빈 texts, 언어 코드 형식 오류, batch/길이 초과)
-  -> 500 {"detail":"..."} (번역 런타임 오류 — 예: 존재하지 않는 언어 코드)
-```
-
-curl 예시:
-```bash
-curl -s http://127.0.0.1:8008/health
-curl -s -X POST http://127.0.0.1:8008/translate \
-  -H 'content-type: application/json' \
-  -d '{"texts":["Hello, the weather is nice today."],"source_lang":"eng_Latn","target_lang":"kor_Hang"}'
-```
-
-테스트:
-```bash
-source ~/.venv_global/bin/activate
-cd server
-pytest                        # 빠른 테스트만 (translator는 mock), 25개 ~1초
-RUN_MODEL_TESTS=1 pytest      # 실제 모델 로드까지 포함, 17개 ~5초 (모델 로드+워밍업 포함)
-```
-`server/pyproject.toml`의 `pythonpath = ["."]`로 `server/` 안에서 실행해야 `import app`/`import translator`/`import config`가 풀린다.
 
 ### 검증 결과 (2026-09-24)
 - 빠른 테스트 25 passed, 2 skipped (모델 미로드 시)

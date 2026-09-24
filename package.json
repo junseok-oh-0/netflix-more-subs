@@ -1,6 +1,6 @@
 {
   "name": "netflix-more-subs",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Netflix More Subs - second subtitle line on Netflix (Chrome extension)",
   "type": "module",

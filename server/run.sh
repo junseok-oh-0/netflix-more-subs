@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts the local NLLB translation server. See docs/NLLB_TRANSLATION.md for env vars.
+# Starts the local NLLB translation server. See README.md for env vars.
 set -euo pipefail
 cd "$(dirname "$0")"
 source ~/.venv_global/bin/activate

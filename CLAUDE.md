@@ -58,7 +58,7 @@ Python/FastAPI. TS 쪽과 도구가 다르므로 별도 규칙.
 - 서버를 띄워 테스트한 뒤에는 **반드시 프로세스를 죽인다** (`pkill -f "uvicorn app:app"` 또는 PID). 켜둔 채 세션을 넘기지 않는다
 
 ## 로컬 번역(NLLB) — 통합 패턴
-상세는 `docs/NLLB_TRANSLATION.md`(작업 일지 겸 사용법). 여기는 재사용할 패턴만.
+설치·설정·사용법은 `server/README.md`, 설계 결정과 작업 기록은 `docs/NLLB_TRANSLATION.md`. 여기는 재사용할 패턴만.
 
 - `subtitles.ts`의 `createSubtitleSession(...)`은 `translate` 함수를 4번째 인자로 주입받는다(기본값은 실제 구현). 테스트는 `chrome.runtime.sendMessage`까지 안 가고 `host.chrome.setSendMessageHandler(...)`로 응답을 직접 제어한다 (`test/helpers/extension-host.js`)
 - **비동기 자막 갱신은 반드시 staleness 가드가 있어야 한다.** 자막은 빠르게 바뀌므로, 늦게 도착한 응답이 그새 바뀐 화면을 덮어쓰면 안 된다. `translationSeq` 카운터 패턴(요청 시점의 값을 캡처, 응답 시점에 비교) 참고. 새로 비동기 자막 갱신을 추가할 때 이 패턴을 복사한다

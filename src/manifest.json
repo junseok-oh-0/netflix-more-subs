@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Netflix More Subs",
   "description": "Adds a second, translatable subtitle line under the original on Netflix. Personal fork of Dual Subtitles for Netflix.",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "icons": {
     "16": "icons/icon16.png",
     "24": "icons/icon24.png",

@@ -3,7 +3,7 @@
 리팩토링(Phase 0~6, `REFACTORING_PLAN.md`)은 2026-09-16에 끝났다. 이후 방향.
 
 ## 완료: 로컬 NLLB 번역 (코딩 + E2E 전부 완료, 2026-09-24)
-브라우저 내장 번역기 대신 **CTranslate2에 올린 `nllb-200-distilled-600M`**으로 확장이 직접 번역한다. 상세 설계·구현 기록·사용법·E2E 결과는 **`docs/NLLB_TRANSLATION.md`**(작업 일지 겸 사용법 문서).
+브라우저 내장 번역기 대신 **CTranslate2에 올린 `nllb-200-distilled-600M`**으로 확장이 직접 번역한다. 설치·설정·사용법은 **`server/README.md`**, 설계 결정·구현 기록·E2E 결과는 **`docs/NLLB_TRANSLATION.md`**(작업 일지).
 
 - 서버(`server/`, FastAPI): `POST /translate`, `GET /health`. 유닛 테스트 25/25 + 실모델 통합 테스트 17개. 실서버 curl 스모크 확인
 - 확장(TS): `preferences.ts`에 `translator`/`sourceLang`/`targetLang`/`localServerUrl` 추가, `background.ts`가 로컬 서버로 fetch, `subtitles.ts`가 자막을 번역해 미러에 반영(원문 즉시 표시 → 번역 도착 시 교체, stale 응답 방지), 팝업에 엔진 전환 UI. 유닛 테스트 73/73
