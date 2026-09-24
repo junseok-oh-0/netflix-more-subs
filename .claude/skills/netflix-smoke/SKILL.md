@@ -31,7 +31,15 @@ Optional argument: a `/watch/` URL to use instead of the default title.
 - Netflix occasionally lands in a broken state after navigate/reload — no `<video>` element, zero
   console output ever, only stray unrelated DOM ("Back Button"/"Filter Button" text) visible. A
   fresh tab or a manual refresh clears it. If 2-3 retries don't fix it, stop and ask the user to
-  look at the actual window — this can look identical to a tool-side problem.
+  look at the actual window — this can look identical to a tool-side problem. **Confirmed by the
+  user (2026-09-24)** as a known intermittent Netflix-side issue ("한번씩 무한로딩이 걸린다") unrelated
+  to this extension or the automation tooling; a manual refresh on their end reliably fixes it, so
+  when automated retries are exhausted just hand it back to the user rather than digging further.
+- Long (multi-line) subtitles can overflow past the player's bottom edge in stacked mode — the
+  mirror wraps to several lines and `shrinkContainerToFit` only reacts to horizontal overflow
+  (`offsetWidth`), not vertical. First observed 2026-09-24 with default settings (checklist item
+  B-4, previously never exercised). Not yet fixed — flag as a known gap if it comes up, don't
+  attempt a fix as part of a routine smoke run.
 - Dual Subtitles OFF hides the mirror and leaves the original untouched (no `translate="no"`,
   no forced color) — this is intentional, not a bug. `runPageChecks` detects this
   (`mirror.style.display === 'none'`) and skips A3/A4/B1-B4/E-font-multiplier automatically.
